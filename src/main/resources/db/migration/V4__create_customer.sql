@@ -1,0 +1,13 @@
+CREATE TABLE customers (
+    id BIGSERIAL PRIMARY KEY,
+
+    full_name VARCHAR(100) NOT NULL,
+
+    mobile VARCHAR(15) NOT NULL UNIQUE,
+
+    email VARCHAR(150),
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

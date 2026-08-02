@@ -1,0 +1,26 @@
+CREATE TABLE users
+(
+    id BIGSERIAL PRIMARY KEY,
+
+    firebase_uid VARCHAR(128) UNIQUE,
+
+    full_name VARCHAR(100) NOT NULL,
+
+    email VARCHAR(150) UNIQUE,
+
+    mobile VARCHAR(20) UNIQUE,
+
+    password VARCHAR(255),
+
+    provider VARCHAR(20) NOT NULL,
+
+    role VARCHAR(20) NOT NULL DEFAULT 'CUSTOMER',
+
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+
+    email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

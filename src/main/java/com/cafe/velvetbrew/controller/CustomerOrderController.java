@@ -1,6 +1,6 @@
 package com.cafe.velvetbrew.controller;
 
-
+import com.cafe.velvetbrew.common.enums.OrderStatus;
 import com.cafe.velvetbrew.dto.ApiResponse;
 import com.cafe.velvetbrew.dto.CreateOrderRequest;
 import com.cafe.velvetbrew.dto.OrderResponse;
@@ -22,7 +22,6 @@ public class CustomerOrderController {
 
     @GetMapping
     public ApiResponse<List<OrderResponse>> getOrderList() {
-
         return ApiResponse.success(orderService.getOrderList());
     }
 
@@ -36,12 +35,13 @@ public class CustomerOrderController {
     }
 
     @PatchMapping
-    public ApiResponse<OrderResponse> updateOrder(@RequestParam String orderNumber,
-            @Valid @RequestBody CreateOrderRequest request) {
+    public ApiResponse<OrderResponse> updateOrderStatus(
+            @RequestParam String orderNumber,
+            @RequestParam OrderStatus orderStatus) {
 
         return ApiResponse.success(
-                "Order created successfully",
-                orderService.updateOrder(orderNumber,request));
+                "Order status updated successfully",
+                orderService.updateOrderStatus(orderNumber, orderStatus));
     }
 
     @GetMapping("/{orderNumber}")

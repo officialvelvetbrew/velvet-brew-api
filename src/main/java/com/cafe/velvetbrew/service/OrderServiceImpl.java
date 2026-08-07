@@ -108,7 +108,7 @@ public class OrderServiceImpl implements OrderService {
 
         Order order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() ->
-                        new RuntimeException("Order not found : " + orderId));
+                        new RuntimeException("Order not found : " + orderNumber));
 
         Customer customer = customerService.findOrCreate(request.getCustomer());
 
@@ -173,7 +173,7 @@ public class OrderServiceImpl implements OrderService {
         Order updatedOrder = orderRepository.save(order);
 
         return mapToResponse(updatedOrder);
-}
+    }
 
     @Override
     @Transactional(readOnly = true)

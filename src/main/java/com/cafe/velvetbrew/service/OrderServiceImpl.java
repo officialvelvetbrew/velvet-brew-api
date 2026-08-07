@@ -161,6 +161,21 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional
+    public OrderResponse updateOrderStatus(String orderNumber, OrderStatus orderStatus) {
+
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() ->
+                        new RuntimeException("Order not found: " + orderNumber));
+
+        order.setOrderStatus(orderStatus);
+
+        Order updatedOrder = orderRepository.save(order);
+
+        return mapToResponse(updatedOrder);
+}
+
+    @Override
     @Transactional(readOnly = true)
     public OrderResponse getOrder(String orderNumber) {
 

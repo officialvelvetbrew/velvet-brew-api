@@ -1,0 +1,50 @@
+name: Deploy VelvetBrew
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build
+        run: mvn clean package -DskipTests
+
+      - name: Create ROOT.war
+        run: cp target/*.war ROOT.war
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+
+      - name: Upload WAR
+        run: |
+          scp ROOT.war \
+          ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/tmp/ROOT.war
+
+      - name: Deploy
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            TOMCAT_HOME=/home/velvetbrew/apache-tomcat-velvetbrew
+
+            \$TOMCAT_HOME/bin/shutdown.sh || true
+            sleep 10
+
+            rm -rf \$TOMCAT_HOME/webapps/ROOT
+            mv /tmp/ROOT.war \$TOMCAT_HOME/webapps/ROOT.war
+
+            \$TOMCAT_HOME/bin/startup.sh
+          "

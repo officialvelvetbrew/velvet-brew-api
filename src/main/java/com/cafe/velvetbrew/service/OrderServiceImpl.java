@@ -5,34 +5,41 @@ import com.cafe.velvetbrew.common.enums.OrderStatus;
 import com.cafe.velvetbrew.common.enums.PaymentStatus;
 import com.cafe.velvetbrew.common.exception.OrderNotFoundException;
 import com.cafe.velvetbrew.dto.CreateOrderRequest;
-import com.cafe.velvetbrew.dto.OrderItemRequest;
 import com.cafe.velvetbrew.dto.OrderItemResponse;
 import com.cafe.velvetbrew.dto.OrderResponse;
 import com.cafe.velvetbrew.entity.Customer;
-import com.cafe.velvetbrew.entity.MenuItem;
+import com.cafe.velvetbrew.entity.Offer;
 import com.cafe.velvetbrew.entity.Order;
 import com.cafe.velvetbrew.entity.OrderItem;
-import com.cafe.velvetbrew.repository.MenuItemRepository;
+import com.cafe.velvetbrew.entity.Users;
 import com.cafe.velvetbrew.repository.OrderRepository;
+import com.cafe.velvetbrew.repository.UserRepository;
 import com.cafe.velvetbrew.utils.OrderNumberGenerator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
-    private final MenuItemRepository menuItemRepository;
     private final CustomerService customerService;
-
-
+    private final MenuPricingService menuPricingService;
+    private final OfferApplicationService offerApplicationService;
+    private final UserRepository userRepository;
 
     @Override
     public OrderResponse createOrder(CreateOrderRequest request) {
@@ -42,50 +49,41 @@ public class OrderServiceImpl implements OrderService {
         Order order = Order.builder()
                 .orderNumber(OrderNumberGenerator.generate())
                 .customer(customer)
+                .user(resolveAuthenticatedUser().orElse(null))
                 .paymentStatus(PaymentStatus.PENDING)
                 .orderStatus(OrderStatus.PENDING)
                 .specialInstructions(request.getSpecialInstructions())
                 .build();
 
-        List<OrderItem> orderItems = new ArrayList<>();
+        List<MenuPricingService.PricedItem> pricedItems = menuPricingService.price(request.getItems());
+        BigDecimal subtotal = menuPricingService.subtotalOf(pricedItems);
 
-        BigDecimal subtotal = BigDecimal.ZERO;
+        List<OrderItem> orderItems = toOrderItems(order, pricedItems);
 
-        for (OrderItemRequest itemRequest : request.getItems()) {
+        BigDecimal discount = BigDecimal.ZERO;
+        Offer appliedOffer = null;
 
-            MenuItem menuItem = menuItemRepository.findById(itemRequest.getMenuId())
-                    .orElseThrow(() ->
-                            new RuntimeException("Menu Item not found : "
-                                    + itemRequest.getMenuId()));
+        if (StringUtils.hasText(request.getOfferCode())) {
 
-            if (!Boolean.TRUE.equals(menuItem.getAvailable())) {
-                throw new RuntimeException(
-                        menuItem.getName() + " is currently unavailable");
-            }
+            OfferApplicationService.OfferDiscount result =
+                    offerApplicationService.apply(request.getOfferCode(), subtotal, customer, order.getOrderNumber());
 
-            BigDecimal lineTotal = menuItem.getPrice()
-                    .multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
-
-            subtotal = subtotal.add(lineTotal);
-
-            OrderItem orderItem = OrderItem.builder()
-                    .order(order)
-                    .menuItem(menuItem)
-                    .quantity(itemRequest.getQuantity())
-                    .unitPrice(menuItem.getPrice())
-                    .totalPrice(lineTotal)
-                    .build();
-
-            orderItems.add(orderItem);
+            discount = result.discountAmount();
+            appliedOffer = result.offer();
         }
 
         order.setSubtotal(subtotal);
         order.setTax(BigDecimal.ZERO);
-        order.setDiscount(BigDecimal.ZERO);
-        order.setTotalAmount(subtotal);
+        order.setDiscount(discount);
+        order.setTotalAmount(subtotal.subtract(discount));
         order.setOrderItems(orderItems);
+        order.setOffer(appliedOffer);
 
         Order savedOrder = orderRepository.save(order);
+
+        log.info("Created order {} for customer {} - {} item(s), subtotal {}, discount {}, total {}",
+                savedOrder.getOrderNumber(), customer.getId(), orderItems.size(), subtotal, discount,
+                order.getTotalAmount());
 
         return mapToResponse(savedOrder);
     }
@@ -107,8 +105,10 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse updateOrder(String orderNumber, CreateOrderRequest request) {
 
         Order order = orderRepository.findByOrderNumber(orderNumber)
-                .orElseThrow(() ->
-                        new RuntimeException("Order not found : " + orderNumber));
+                .orElseThrow(() -> {
+                    log.warn("Order update failed - order {} not found", orderNumber);
+                    return new OrderNotFoundException(orderNumber);
+                });
 
         Customer customer = customerService.findOrCreate(request.getCustomer());
 
@@ -118,59 +118,31 @@ public class OrderServiceImpl implements OrderService {
         // Remove existing items
         order.getOrderItems().clear();
 
-        List<OrderItem> orderItems = new ArrayList<>();
-        BigDecimal subtotal = BigDecimal.ZERO;
+        List<MenuPricingService.PricedItem> pricedItems = menuPricingService.price(request.getItems());
+        BigDecimal subtotal = menuPricingService.subtotalOf(pricedItems);
 
-        for (OrderItemRequest itemRequest : request.getItems()) {
+        List<OrderItem> orderItems = toOrderItems(order, pricedItems);
 
-            MenuItem menuItem = menuItemRepository.findById(itemRequest.getMenuId())
-                    .orElseThrow(() ->
-                            new RuntimeException("Menu Item not found : "
-                                    + itemRequest.getMenuId()));
-
-            if (!Boolean.TRUE.equals(menuItem.getAvailable())) {
-                throw new RuntimeException(
-                        menuItem.getName() + " is currently unavailable");
-            }
-
-            BigDecimal lineTotal = menuItem.getPrice()
-                    .multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
-
-            subtotal = subtotal.add(lineTotal);
-
-            OrderItem orderItem = OrderItem.builder()
-                    .order(order)
-                    .menuItem(menuItem)
-                    .quantity(itemRequest.getQuantity())
-                    .unitPrice(menuItem.getPrice())
-                    .totalPrice(lineTotal)
-                    .build();
-
-            orderItems.add(orderItem);
-        }
+        // An offer already redeemed on this order at creation time has its
+        // discount recomputed against the new subtotal (items may have
+        // changed), but usage counters/eligibility are not re-checked -
+        // that already happened once, at redemption. Applying a NEW offer
+        // via update isn't supported: apply() would double-count usage
+        // against this same order, so offerCode on an update is ignored.
+        BigDecimal discount = order.getOffer() != null
+                ? offerApplicationService.recompute(order.getOffer(), subtotal)
+                : BigDecimal.ZERO;
 
         order.setSubtotal(subtotal);
         order.setTax(BigDecimal.ZERO);
-        order.setDiscount(BigDecimal.ZERO);
-        order.setTotalAmount(subtotal);
+        order.setDiscount(discount);
+        order.setTotalAmount(subtotal.subtract(discount));
         order.setOrderItems(orderItems);
 
         Order updatedOrder = orderRepository.save(order);
 
-        return mapToResponse(updatedOrder);
-    }
-
-    @Override
-    @Transactional
-    public OrderResponse updateOrderStatus(String orderNumber, OrderStatus orderStatus) {
-
-        Order order = orderRepository.findByOrderNumber(orderNumber)
-                .orElseThrow(() ->
-                        new RuntimeException("Order not found: " + orderNumber));
-
-        order.setOrderStatus(orderStatus);
-
-        Order updatedOrder = orderRepository.save(order);
+        log.info("Updated order {} - {} item(s), subtotal {}, discount {}, total {}",
+                orderNumber, orderItems.size(), subtotal, discount, order.getTotalAmount());
 
         return mapToResponse(updatedOrder);
     }
@@ -185,7 +157,69 @@ public class OrderServiceImpl implements OrderService {
 
         return mapToResponse(order);
     }
-    
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getMyOrders() {
+
+        Users user = resolveAuthenticatedUser()
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        return orderRepository.findByUser_IdOrderByCreatedAtDesc(user.getId())
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Override
+    public OrderResponse updateOrderStatus(String orderNumber, OrderStatus orderStatus) {
+
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new OrderNotFoundException(orderNumber));
+
+        order.setOrderStatus(orderStatus);
+        Order updatedOrder = orderRepository.save(order);
+
+        log.info("Updated order {} status to {}", orderNumber, orderStatus);
+
+        return mapToResponse(updatedOrder);
+    }
+
+    /**
+     * Never null-checked by callers upstream: guest checkout (no bearer
+     * token, or an anonymous one) is the common case, so this returns
+     * empty rather than throwing - only getMyOrders() treats an absent
+     * user as an error, since that endpoint requires a JWT already.
+     */
+    private Optional<Users> resolveAuthenticatedUser() {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+            return Optional.empty();
+        }
+
+        String identifier = authentication.getName();
+
+        return userRepository.findByEmail(identifier)
+                .or(() -> userRepository.findByPhoneNumber(identifier));
+    }
+
+    private List<OrderItem> toOrderItems(Order order, List<MenuPricingService.PricedItem> pricedItems) {
+
+        return pricedItems.stream()
+                .map(priced -> OrderItem.builder()
+                        .order(order)
+                        .menuItem(priced.menuItem())
+                        .quantity(priced.quantity())
+                        .unitPrice(priced.unitPrice())
+                        .totalPrice(priced.lineTotal())
+                        .build())
+                .toList();
+    }
+
     private OrderResponse mapToResponse(Order order) {
 
         List<OrderItemResponse> items =
@@ -198,10 +232,12 @@ public class OrderServiceImpl implements OrderService {
                 .orderNumber(order.getOrderNumber())
                 .customerName(order.getCustomer().getFullName())
                 .mobile(order.getCustomer().getMobile())
+                .userId(order.getUser() != null ? order.getUser().getId() : null)
                 .items(items)
                 .subtotal(order.getSubtotal())
                 .tax(order.getTax())
                 .discount(order.getDiscount())
+                .appliedOfferCode(order.getOffer() != null ? order.getOffer().getCode() : null)
                 .totalAmount(order.getTotalAmount())
                 .paymentStatus(order.getPaymentStatus())
                 .orderStatus(order.getOrderStatus())
@@ -222,4 +258,3 @@ public class OrderServiceImpl implements OrderService {
     }
 
 }
-    

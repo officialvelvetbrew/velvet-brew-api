@@ -1,0 +1,12 @@
+CREATE TABLE roles (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    role_code VARCHAR(50) NOT NULL,
+    role_name VARCHAR(100) NOT NULL,
+    description VARCHAR(255),
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uk_roles_role_code UNIQUE (role_code),
+    CONSTRAINT uk_roles_role_name UNIQUE (role_name)
+);

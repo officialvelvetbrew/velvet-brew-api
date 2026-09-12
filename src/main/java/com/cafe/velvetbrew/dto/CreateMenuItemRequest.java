@@ -26,6 +26,7 @@ public class CreateMenuItemRequest {
     @DecimalMin("0.00")
     private BigDecimal price;
 
+    @DecimalMin("0.00")
     private BigDecimal offerPrice;
 
     private String imageUrl;

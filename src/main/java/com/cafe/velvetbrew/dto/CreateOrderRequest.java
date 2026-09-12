@@ -19,4 +19,11 @@ public class CreateOrderRequest {
 
     private String specialInstructions;
 
+    /**
+     * Optional coupon code. Validated and priced entirely server-side
+     * (OfferApplicationService) - never trust a discount amount from the
+     * client, same principle as order/payment totals.
+     */
+    private String offerCode;
+
 }

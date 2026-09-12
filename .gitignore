@@ -31,3 +31,13 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Secrets ###
+src/main/resources/firebase/*.json
+.env
+
+### Logs ###
+logs/
+
+### Claude Code ###
+.claude/

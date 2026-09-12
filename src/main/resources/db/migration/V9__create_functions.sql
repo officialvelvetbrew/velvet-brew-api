@@ -1,0 +1,11 @@
+CREATE TABLE functions (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    function_code VARCHAR(100) NOT NULL,
+    function_name VARCHAR(150) NOT NULL,
+    description VARCHAR(255),
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uk_functions_function_code UNIQUE (function_code)
+);

@@ -17,4 +17,6 @@ public class CreatePaymentRequest {
 
     private String specialInstructions;
 
+    private String offerCode;
+
 }

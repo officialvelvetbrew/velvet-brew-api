@@ -10,10 +10,12 @@ import com.cafe.velvetbrew.entity.MenuItem;
 import com.cafe.velvetbrew.repository.CategoryRepository;
 import com.cafe.velvetbrew.repository.MenuItemRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MenuItemServiceImpl implements MenuItemService {
@@ -32,6 +34,8 @@ public class MenuItemServiceImpl implements MenuItemService {
                 request.getCategoryId(),
                 request.getName())) {
 
+            log.warn("Menu item creation rejected - duplicate name '{}' in category {}",
+                    request.getName(), request.getCategoryId());
             throw new MenuItemAlreadyExistsException(
                     "Menu item already exists.");
         }
@@ -50,7 +54,11 @@ public class MenuItemServiceImpl implements MenuItemService {
                 .active(true)
                 .build();
 
-        return map(menuRepository.save(item));
+        MenuItem saved = menuRepository.save(item);
+
+        log.info("Created menu item id={} name={} categoryId={}", saved.getId(), saved.getName(), saved.getCategory().getId());
+
+        return map(saved);
     }
 
     @Override
@@ -82,8 +90,44 @@ public class MenuItemServiceImpl implements MenuItemService {
     @Override
     public MenuItemResponse update(Long id, CreateMenuItemRequest request) {
 
-        // We'll implement this next.
-        throw new UnsupportedOperationException("Not implemented yet.");
+        MenuItem item = menuRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Menu item not found."));
+
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Category not found."));
+
+        boolean movedOrRenamed =
+                !item.getCategory().getId().equals(request.getCategoryId())
+                        || !item.getName().equalsIgnoreCase(request.getName());
+
+        if (movedOrRenamed && menuRepository.existsByCategoryIdAndNameIgnoreCase(
+                request.getCategoryId(),
+                request.getName())) {
+
+            log.warn("Menu item update rejected for id={} - duplicate name '{}' in category {}",
+                    id, request.getName(), request.getCategoryId());
+            throw new MenuItemAlreadyExistsException(
+                    "Menu item already exists.");
+        }
+
+        item.setCategory(category);
+        item.setName(request.getName().trim());
+        item.setDescription(request.getDescription());
+        item.setPrice(request.getPrice());
+        item.setOfferPrice(request.getOfferPrice());
+        item.setImageUrl(request.getImageUrl());
+        item.setVeg(request.getVeg());
+        item.setAvailable(request.getAvailable());
+        item.setFeatured(request.getFeatured());
+        item.setDisplayOrder(request.getDisplayOrder());
+
+        MenuItem updated = menuRepository.save(item);
+
+        log.info("Updated menu item id={}", updated.getId());
+
+        return map(updated);
     }
 
     @Override
@@ -95,6 +139,8 @@ public class MenuItemServiceImpl implements MenuItemService {
 
         item.setActive(false);   // Soft delete
         menuRepository.save(item);
+
+        log.info("Deleted (deactivated) menu item id={} name={}", item.getId(), item.getName());
     }
 
     private MenuItemResponse map(MenuItem item) {

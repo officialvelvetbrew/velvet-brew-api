@@ -31,7 +31,7 @@ public class AdminMenuController {
                         .build());
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<ApiResponse<MenuItemResponse>> update(
             @PathVariable Long id,
             @Valid @RequestBody CreateMenuItemRequest request) {

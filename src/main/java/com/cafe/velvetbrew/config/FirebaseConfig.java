@@ -1,5 +1,6 @@
 package com.cafe.velvetbrew.config;
 
+import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
@@ -22,6 +23,7 @@ public class FirebaseConfig {
                             GoogleCredentials.fromStream(
                                     new ClassPathResource("firebase/velvetbrew-firebase.json")
                                             .getInputStream()))
+                    .setHttpTransport(new NetHttpTransport())
                     .build();
 
             FirebaseApp.initializeApp(options);

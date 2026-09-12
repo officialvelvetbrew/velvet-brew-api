@@ -15,4 +15,6 @@ public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
     List<MenuItem> findByFeaturedTrueAndActiveTrue();
 
     boolean existsByCategoryIdAndNameIgnoreCase(Long categoryId, String name);
+
+    boolean existsByCategoryId(Long categoryId);
 }

@@ -1,26 +1,32 @@
 package com.cafe.velvetbrew.service;
 
 import com.cafe.velvetbrew.common.exception.CategoryAlreadyExistsException;
+import com.cafe.velvetbrew.common.exception.CategoryInUseException;
 import com.cafe.velvetbrew.common.exception.ResourceNotFoundException;
 import com.cafe.velvetbrew.dto.CategoryResponse;
 import com.cafe.velvetbrew.dto.CreateCategoryRequest;
 import com.cafe.velvetbrew.entity.Category;
 import com.cafe.velvetbrew.repository.CategoryRepository;
+import com.cafe.velvetbrew.repository.MenuItemRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository repository;
+    private final MenuItemRepository menuItemRepository;
 
     @Override
     public CategoryResponse create(CreateCategoryRequest request) {
 
         if (repository.existsByNameIgnoreCase(request.getName())) {
+            log.warn("Category creation rejected - duplicate name: {}", request.getName());
             throw new CategoryAlreadyExistsException("Category already exists.");
         }
 
@@ -30,7 +36,11 @@ public class CategoryServiceImpl implements CategoryService {
                 .active(true)
                 .build();
 
-        return map(repository.save(category));
+        Category saved = repository.save(category);
+
+        log.info("Created category id={} name={}", saved.getId(), saved.getName());
+
+        return map(saved);
     }
 
     @Override
@@ -63,13 +73,18 @@ public class CategoryServiceImpl implements CategoryService {
         if (!category.getName().equalsIgnoreCase(request.getName())
                 && repository.existsByNameIgnoreCase(request.getName())) {
 
+            log.warn("Category update rejected for id={} - duplicate name: {}", id, request.getName());
             throw new CategoryAlreadyExistsException("Category already exists.");
         }
 
         category.setName(request.getName().trim());
         category.setDescription(request.getDescription());
 
-        return map(repository.save(category));
+        Category updated = repository.save(category);
+
+        log.info("Updated category id={} name={}", updated.getId(), updated.getName());
+
+        return map(updated);
     }
 
     @Override
@@ -79,7 +94,15 @@ public class CategoryServiceImpl implements CategoryService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Category not found."));
 
+        if (menuItemRepository.existsByCategoryId(id)) {
+            log.warn("Category deletion rejected for id={} - still has menu items", id);
+            throw new CategoryInUseException(
+                    "Category cannot be deleted while it still has menu items.");
+        }
+
         repository.delete(category);
+
+        log.info("Deleted category id={} name={}", category.getId(), category.getName());
     }
 
     private CategoryResponse map(Category category) {

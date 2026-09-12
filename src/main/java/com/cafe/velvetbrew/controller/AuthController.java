@@ -10,14 +10,12 @@ import com.google.firebase.auth.FirebaseToken;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @Validated
 public class AuthController {
@@ -28,17 +26,17 @@ public class AuthController {
     private final JwtService jwtService;
 
     @PostMapping("/firebase")
-    public ResponseEntity<LoginResponse> firebaseLogin(
-            @RequestBody FirebaseLoginRequest request) throws Exception {
+    public ResponseEntity<AuthResponse> firebaseLogin(
+            @RequestBody FirebaseLoginRequest request) {
 
         FirebaseToken firebaseToken =
                 firebaseService.verifyToken(request.getIdToken());
 
-        Users user = userService.findOrCreate(firebaseToken);
+        Users user = userService.findOrCreate(firebaseToken, request.getPhoneNumber());
 
         String jwt = jwtService.generateToken(user);
 
-        return ResponseEntity.ok(new LoginResponse(jwt, user));
+        return ResponseEntity.ok(authService.buildAuthResponse(user.getId(), jwt));
     }
 
     @PostMapping("/register")
@@ -53,5 +51,31 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request) {
 
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Object>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+
+        return ResponseEntity.ok(authService.forgotPassword(request));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Object>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+
+        return ResponseEntity.ok(authService.resetPassword(request));
+    }
+
+    /**
+     * Re-fetches the caller's profile, roles and granted functions from
+     * their existing JWT - no new token is issued. Meant for a front end to
+     * call on app load / page refresh to know which screens and actions to
+     * show without forcing a fresh login.
+     */
+    @GetMapping("/me")
+    public ResponseEntity<AuthResponse> me(Authentication authentication) {
+
+        return ResponseEntity.ok(authService.me(authentication.getName()));
     }
 }

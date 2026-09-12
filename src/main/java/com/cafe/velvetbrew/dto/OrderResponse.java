@@ -20,6 +20,12 @@ public class OrderResponse {
 
     private String mobile;
 
+    /**
+     * The logged-in account this order is tagged to, if any - null for
+     * guest checkout.
+     */
+    private Long userId;
+
     private List<OrderItemResponse> items;
 
     private BigDecimal subtotal;
@@ -27,6 +33,8 @@ public class OrderResponse {
     private BigDecimal tax;
 
     private BigDecimal discount;
+
+    private String appliedOfferCode;
 
     private BigDecimal totalAmount;
 

@@ -10,4 +10,6 @@ extends JpaRepository<Payment,Long>{
 
 Optional<Payment> findByOrderNumber(String orderNumber);
 
+Optional<Payment> findByRazorpayOrderId(String razorpayOrderId);
+
 }

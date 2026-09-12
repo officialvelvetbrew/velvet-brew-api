@@ -5,6 +5,6 @@ import com.google.firebase.auth.FirebaseToken;
 
 public interface UserService {
 
-    Users findOrCreate(FirebaseToken firebaseToken);
+    Users findOrCreate(FirebaseToken firebaseToken, String suppliedPhoneNumber);
 
 }

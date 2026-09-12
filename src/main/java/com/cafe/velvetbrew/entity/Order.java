@@ -32,6 +32,19 @@ public class Order {
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
+    /**
+     * The logged-in account that placed this order, if any - null for guest
+     * checkout. Independent of {@link #customer}, which is the name/mobile
+     * captured at checkout regardless of login state.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private Users user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "offer_id")
+    private Offer offer;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal subtotal;
 

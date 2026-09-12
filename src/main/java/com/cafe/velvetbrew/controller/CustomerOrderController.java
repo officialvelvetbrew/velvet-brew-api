@@ -1,6 +1,6 @@
 package com.cafe.velvetbrew.controller;
 
-import com.cafe.velvetbrew.common.enums.OrderStatus;
+
 import com.cafe.velvetbrew.dto.ApiResponse;
 import com.cafe.velvetbrew.dto.CreateOrderRequest;
 import com.cafe.velvetbrew.dto.OrderResponse;
@@ -22,6 +22,7 @@ public class CustomerOrderController {
 
     @GetMapping
     public ApiResponse<List<OrderResponse>> getOrderList() {
+
         return ApiResponse.success(orderService.getOrderList());
     }
 
@@ -35,13 +36,12 @@ public class CustomerOrderController {
     }
 
     @PatchMapping
-    public ApiResponse<OrderResponse> updateOrderStatus(
-            @RequestParam String orderNumber,
-            @RequestParam OrderStatus orderStatus) {
+    public ApiResponse<OrderResponse> updateOrder(@RequestParam String orderNumber,
+            @Valid @RequestBody CreateOrderRequest request) {
 
         return ApiResponse.success(
-                "Order status updated successfully",
-                orderService.updateOrderStatus(orderNumber, orderStatus));
+                "Order updated successfully",
+                orderService.updateOrder(orderNumber,request));
     }
 
     @GetMapping("/{orderNumber}")
@@ -50,5 +50,17 @@ public class CustomerOrderController {
 
         return ApiResponse.success(
                 orderService.getOrder(orderNumber));
+    }
+
+    /**
+     * Orders placed by the caller's own account - requires a JWT, unlike
+     * the guest-friendly endpoints above. Matched ahead of
+     * GET /{orderNumber} in SecurityConfig so "mine" is never treated as
+     * an order number.
+     */
+    @GetMapping("/mine")
+    public ApiResponse<List<OrderResponse>> getMyOrders() {
+
+        return ApiResponse.success(orderService.getMyOrders());
     }
 }

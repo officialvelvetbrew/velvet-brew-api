@@ -1,9 +1,12 @@
 package com.cafe.velvetbrew.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -16,6 +19,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import java.time.LocalDateTime;
+import java.util.Map;
+
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
@@ -23,6 +29,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomUserDetailsService userDetailsService;
     private final RbacAuthorizationFilter rbacAuthorizationFilter;
+    private final ObjectMapper objectMapper;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -32,6 +39,32 @@ public class SecurityConfig {
                 .cors(cors -> {})
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Without this, Spring Security has no httpBasic()/formLogin()/
+                // oauth2ResourceServer() registered and no AuthenticationEntryPoint
+                // bean to auto-detect, so it silently falls back to
+                // Http403ForbiddenEntryPoint - every missing/invalid/expired JWT
+                // then comes back as 403 Forbidden instead of 401 Unauthorized,
+                // indistinguishable from RbacAuthorizationFilter's genuine
+                // "authenticated but not permitted" 403 below.
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.getWriter().write(objectMapper.writeValueAsString(Map.of(
+                                    "success", false,
+                                    "message", "Authentication required. Please log in again.",
+                                    "timestamp", LocalDateTime.now().toString()
+                            )));
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.getWriter().write(objectMapper.writeValueAsString(Map.of(
+                                    "success", false,
+                                    "message", "You do not have permission to perform this action",
+                                    "timestamp", LocalDateTime.now().toString()
+                            )));
+                        }))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/v1/auth/login",

@@ -10,6 +10,9 @@ import com.cafe.velvetbrew.mapper.OfferMapper;
 import com.cafe.velvetbrew.repository.OfferRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +28,10 @@ public class OfferServiceImpl implements OfferService {
     private final OfferRepository repository;
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "offers", allEntries = true),
+            @CacheEvict(value = "activeOffers", allEntries = true)
+    })
     public OfferResponse create(CreateOfferRequest request) {
 
         String code = request.getCode().trim().toUpperCase();
@@ -63,6 +70,7 @@ public class OfferServiceImpl implements OfferService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "offers", key = "'all'")
     public List<OfferResponse> getAll() {
 
         return repository.findAll().stream().map(OfferMapper::toResponse).toList();
@@ -70,6 +78,7 @@ public class OfferServiceImpl implements OfferService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "offerById", key = "#id")
     public OfferResponse getById(Long id) {
 
         Offer offer = repository.findById(id)
@@ -79,6 +88,11 @@ public class OfferServiceImpl implements OfferService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "offers", allEntries = true),
+            @CacheEvict(value = "offerById", key = "#id"),
+            @CacheEvict(value = "activeOffers", allEntries = true)
+    })
     public OfferResponse update(Long id, UpdateOfferRequest request) {
 
         Offer offer = repository.findById(id)
@@ -143,6 +157,11 @@ public class OfferServiceImpl implements OfferService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "offers", allEntries = true),
+            @CacheEvict(value = "offerById", key = "#id"),
+            @CacheEvict(value = "activeOffers", allEntries = true)
+    })
     public void delete(Long id) {
 
         Offer offer = repository.findById(id)
@@ -157,6 +176,7 @@ public class OfferServiceImpl implements OfferService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "activeOffers", key = "'current'")
     public List<PublicOfferResponse> getCurrentlyActive() {
 
         return repository.findCurrentlyActive(LocalDateTime.now()).stream()

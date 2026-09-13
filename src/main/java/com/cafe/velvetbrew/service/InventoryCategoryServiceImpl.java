@@ -2,6 +2,9 @@ package com.cafe.velvetbrew.service;
 
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +29,7 @@ public class InventoryCategoryServiceImpl
     private final InventoryCategoryMapper mapper;
 
     @Override
+    @CacheEvict(value = "inventoryCategories", allEntries = true)
     public InventoryCategoryResponse create(
             CreateInventoryCategoryRequest request) {
 
@@ -53,6 +57,7 @@ public class InventoryCategoryServiceImpl
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "inventoryCategories", key = "'all'")
     public List<InventoryCategoryResponse> getAll() {
 
         return repository
@@ -64,6 +69,7 @@ public class InventoryCategoryServiceImpl
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "inventoryCategoryById", key = "#id")
     public InventoryCategoryResponse getById(Long id) {
 
         InventoryCategory category =
@@ -79,6 +85,10 @@ public class InventoryCategoryServiceImpl
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "inventoryCategories", allEntries = true),
+            @CacheEvict(value = "inventoryCategoryById", key = "#id")
+    })
     public InventoryCategoryResponse update(
             Long id,
             UpdateInventoryCategoryRequest request) {
@@ -129,6 +139,10 @@ public class InventoryCategoryServiceImpl
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "inventoryCategories", allEntries = true),
+            @CacheEvict(value = "inventoryCategoryById", key = "#id")
+    })
     public void delete(Long id) {
 
         InventoryCategory category =

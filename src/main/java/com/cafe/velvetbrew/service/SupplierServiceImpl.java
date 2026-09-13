@@ -3,6 +3,9 @@ package com.cafe.velvetbrew.service;
 
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +29,7 @@ public class SupplierServiceImpl implements SupplierService {
     private final SupplierMapper mapper;
 
     @Override
+    @CacheEvict(value = "suppliers", allEntries = true)
     public SupplierResponse create(
             CreateSupplierRequest request) {
 
@@ -67,6 +71,7 @@ public class SupplierServiceImpl implements SupplierService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "suppliers", key = "'all'")
     public List<SupplierResponse> getAll() {
 
         return repository.findAll()
@@ -77,6 +82,7 @@ public class SupplierServiceImpl implements SupplierService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "supplierById", key = "#id")
     public SupplierResponse getById(Long id) {
 
         Supplier supplier = repository.findById(id)
@@ -90,6 +96,10 @@ public class SupplierServiceImpl implements SupplierService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "suppliers", allEntries = true),
+            @CacheEvict(value = "supplierById", key = "#id")
+    })
     public SupplierResponse update(
             Long id,
             UpdateSupplierRequest request) {
@@ -163,6 +173,10 @@ public class SupplierServiceImpl implements SupplierService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "suppliers", allEntries = true),
+            @CacheEvict(value = "supplierById", key = "#id")
+    })
     public void delete(Long id) {
 
         Supplier supplier = repository.findById(id)

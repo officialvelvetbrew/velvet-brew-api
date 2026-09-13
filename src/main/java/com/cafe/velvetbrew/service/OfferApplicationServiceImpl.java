@@ -12,6 +12,8 @@ import com.cafe.velvetbrew.repository.OfferRedemptionRepository;
 import com.cafe.velvetbrew.repository.OfferRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,6 +62,16 @@ public class OfferApplicationServiceImpl implements OfferApplicationService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            // currentUses (embedded in the cached OfferResponse/offerById
+            // entries) changes on every redemption, not just on an explicit
+            // admin edit - the offers/activeOffers regions would otherwise
+            // show a stale usage count and let a maxed-out offer keep
+            // appearing "available" for up to the cache TTL.
+            @CacheEvict(value = "offers", allEntries = true),
+            @CacheEvict(value = "offerById", allEntries = true),
+            @CacheEvict(value = "activeOffers", allEntries = true)
+    })
     public OfferDiscount apply(String code, BigDecimal subtotal, Customer customer, String orderNumber) {
 
         Offer offer = offerRepository.findByCodeIgnoreCaseForUpdate(code.trim())

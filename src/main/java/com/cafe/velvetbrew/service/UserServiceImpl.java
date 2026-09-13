@@ -3,7 +3,10 @@ package com.cafe.velvetbrew.service;
 
 import com.cafe.velvetbrew.common.enums.AuthProvider;
 import com.cafe.velvetbrew.common.enums.Role;
+import com.cafe.velvetbrew.common.exception.ResourceNotFoundException;
+import com.cafe.velvetbrew.entity.AppRole;
 import com.cafe.velvetbrew.entity.Users;
+import com.cafe.velvetbrew.repository.AppRoleRepository;
 import com.cafe.velvetbrew.repository.UserRepository;
 import com.google.firebase.auth.FirebaseToken;
 import lombok.RequiredArgsConstructor;
@@ -11,8 +14,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -21,6 +26,7 @@ import java.util.Optional;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final AppRoleRepository appRoleRepository;
 
     @Override
     public Users findOrCreate(FirebaseToken token, String suppliedPhoneNumber) {
@@ -86,6 +92,29 @@ public class UserServiceImpl implements UserService {
         } else {
             log.info("Linked Firebase uid={} to existing user id={}", token.getUid(), saved.getId());
         }
+
+        return saved;
+    }
+
+    @Override
+    public Users updateRole(Long userId, Role role) {
+
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+
+        AppRole appRole = appRoleRepository.findByRoleCodeIgnoreCase(role.name())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No RBAC role configured for " + role.name() + "."));
+
+        user.setRole(role);
+        // A user holds exactly one RBAC role at a time, mirroring the legacy
+        // single-value role column above - replace rather than add, so a
+        // promotion/demotion can't leave a stale grant from a prior role.
+        user.setRoles(new HashSet<>(Set.of(appRole)));
+
+        Users saved = userRepository.save(user);
+
+        log.info("Updated role for user id={} to {}", saved.getId(), role);
 
         return saved;
     }

@@ -49,7 +49,14 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         return org.springframework.security.core.userdetails.User
                 .withUsername(user.getPrincipalIdentifier())   // principal
-                .password(user.getPassword())
+                // Firebase-only accounts (the normal case for customers) never
+                // have a local password - User.builder().password(null) throws
+                // IllegalArgumentException ("Cannot pass null or empty values
+                // to constructor"), which JwtAuthenticationFilter's catch-all
+                // swallows, silently failing auth for every such account on
+                // every protected endpoint. JWT auth never checks this value
+                // against anything, so an empty placeholder is safe here.
+                .password(user.getPassword() != null ? user.getPassword() : "")
                 .authorities(authorities.toArray(new String[0]))
                 .disabled(!Boolean.TRUE.equals(user.getEnabled()))
                 .build();

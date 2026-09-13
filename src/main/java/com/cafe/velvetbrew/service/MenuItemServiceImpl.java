@@ -11,6 +11,9 @@ import com.cafe.velvetbrew.repository.CategoryRepository;
 import com.cafe.velvetbrew.repository.MenuItemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -24,6 +27,10 @@ public class MenuItemServiceImpl implements MenuItemService {
     private final CategoryRepository categoryRepository;
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "menuItems", allEntries = true),
+            @CacheEvict(value = "menuItemsByCategory", allEntries = true)
+    })
     public MenuItemResponse create(CreateMenuItemRequest request) {
 
         Category category = categoryRepository.findById(request.getCategoryId())
@@ -62,6 +69,7 @@ public class MenuItemServiceImpl implements MenuItemService {
     }
 
     @Override
+    @Cacheable(value = "menuItems", key = "'all'")
     public List<MenuItemResponse> getAll() {
         return menuRepository.findByActiveTrueOrderByDisplayOrderAsc()
                 .stream()
@@ -70,6 +78,7 @@ public class MenuItemServiceImpl implements MenuItemService {
     }
 
     @Override
+    @Cacheable(value = "menuItemsByCategory", key = "#categoryId")
     public List<MenuItemResponse> getByCategory(Long categoryId) {
         return menuRepository.findByCategoryIdAndActiveTrueOrderByDisplayOrderAsc(categoryId)
                 .stream()
@@ -78,6 +87,7 @@ public class MenuItemServiceImpl implements MenuItemService {
     }
 
     @Override
+    @Cacheable(value = "menuItemById", key = "#id")
     public MenuItemResponse getById(Long id) {
 
         MenuItem item = menuRepository.findById(id)
@@ -88,6 +98,11 @@ public class MenuItemServiceImpl implements MenuItemService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "menuItems", allEntries = true),
+            @CacheEvict(value = "menuItemsByCategory", allEntries = true),
+            @CacheEvict(value = "menuItemById", key = "#id")
+    })
     public MenuItemResponse update(Long id, CreateMenuItemRequest request) {
 
         MenuItem item = menuRepository.findById(id)
@@ -131,6 +146,11 @@ public class MenuItemServiceImpl implements MenuItemService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "menuItems", allEntries = true),
+            @CacheEvict(value = "menuItemsByCategory", allEntries = true),
+            @CacheEvict(value = "menuItemById", key = "#id")
+    })
     public void delete(Long id) {
 
         MenuItem item = menuRepository.findById(id)

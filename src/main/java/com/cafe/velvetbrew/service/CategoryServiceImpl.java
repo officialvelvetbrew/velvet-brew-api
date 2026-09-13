@@ -10,6 +10,9 @@ import com.cafe.velvetbrew.repository.CategoryRepository;
 import com.cafe.velvetbrew.repository.MenuItemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,6 +26,7 @@ public class CategoryServiceImpl implements CategoryService {
     private final MenuItemRepository menuItemRepository;
 
     @Override
+    @CacheEvict(value = "categories", allEntries = true)
     public CategoryResponse create(CreateCategoryRequest request) {
 
         if (repository.existsByNameIgnoreCase(request.getName())) {
@@ -44,6 +48,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @Cacheable(value = "categories", key = "'all'")
     public List<CategoryResponse> getAll() {
 
         return repository.findAll()
@@ -53,6 +58,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @Cacheable(value = "categoryById", key = "#id")
     public CategoryResponse getById(Long id) {
 
         Category category = repository.findById(id)
@@ -63,6 +69,15 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "categories", allEntries = true),
+            @CacheEvict(value = "categoryById", key = "#id"),
+            // Menu item responses embed the category name, so a rename
+            // must invalidate them too, not just the category caches.
+            @CacheEvict(value = "menuItems", allEntries = true),
+            @CacheEvict(value = "menuItemsByCategory", allEntries = true),
+            @CacheEvict(value = "menuItemById", allEntries = true)
+    })
     public CategoryResponse update(Long id,
                                    CreateCategoryRequest request) {
 
@@ -88,6 +103,10 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "categories", allEntries = true),
+            @CacheEvict(value = "categoryById", key = "#id")
+    })
     public void delete(Long id) {
 
         Category category = repository.findById(id)

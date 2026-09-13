@@ -112,7 +112,15 @@ public class OrderServiceImpl implements OrderService {
         order.setCustomer(customer);
         order.setSpecialInstructions(request.getSpecialInstructions());
 
-        // Remove existing items
+        // Remove existing items. orderItems is a cascade=ALL,
+        // orphanRemoval=true collection, so the old rows must be deleted by
+        // clearing and re-populating this SAME collection instance -
+        // replacing it outright with a new List (as this used to do via
+        // order.setOrderItems(...) below) breaks Hibernate's ownership
+        // tracking for the pending orphan-removal deletes and throws
+        // "A collection with cascade=all-delete-orphan was no longer
+        // referenced by the owning entity instance" on every edit of an
+        // order that already had items.
         order.getOrderItems().clear();
 
         List<MenuPricingService.PricedItem> pricedItems = menuPricingService.price(request.getItems());
@@ -134,7 +142,7 @@ public class OrderServiceImpl implements OrderService {
         order.setTax(BigDecimal.ZERO);
         order.setDiscount(discount);
         order.setTotalAmount(subtotal.subtract(discount));
-        order.setOrderItems(orderItems);
+        order.getOrderItems().addAll(orderItems);
 
         Order updatedOrder = orderRepository.save(order);
 

@@ -3,6 +3,7 @@ package com.cafe.velvetbrew.controller;
 import com.cafe.velvetbrew.dto.ApiResponse;
 import com.cafe.velvetbrew.dto.OrderResponse;
 import com.cafe.velvetbrew.dto.OrderStatusUpdateRequest;
+import com.cafe.velvetbrew.dto.PaymentStatusUpdateRequest;
 import com.cafe.velvetbrew.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -41,5 +42,27 @@ public class AdminOrderController {
         return ApiResponse.success(
                 "Order status updated successfully",
                 orderService.updateOrderStatus(orderNumber, request.getOrderStatus()));
+    }
+
+    @PatchMapping("/{orderNumber}/payment-status")
+    @Operation(summary = "Update order payment status",
+            description = "Manually mark an order's payment status - e.g. SUCCESS (paid) or PENDING " +
+                    "(unpaid) for a cash payment collected at the counter. Razorpay orders normally " +
+                    "get this set automatically by payment verification instead.")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Payment status updated successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request body or invalid status"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized - Admin token required"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Admin role required"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Order not found")
+    })
+    public ApiResponse<OrderResponse> updatePaymentStatus(
+            @Parameter(description = "Order number to update", required = true, example = "VB-001234")
+            @PathVariable String orderNumber,
+            @Valid @RequestBody PaymentStatusUpdateRequest request) {
+
+        return ApiResponse.success(
+                "Payment status updated successfully",
+                orderService.updatePaymentStatus(orderNumber, request.getPaymentStatus()));
     }
 }

@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -89,15 +88,13 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<OrderResponse> getOrderList() {
-        List<OrderResponse> response = new ArrayList<>();
-        List<Order> order = orderRepository.findAll();
 
-        order.forEach(x->{
-            response.add(mapToResponse(x));
-        });
-
-        return response;
+        return orderRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
     @Override
@@ -181,6 +178,20 @@ public class OrderServiceImpl implements OrderService {
         Order updatedOrder = orderRepository.save(order);
 
         log.info("Updated order {} status to {}", orderNumber, orderStatus);
+
+        return mapToResponse(updatedOrder);
+    }
+
+    @Override
+    public OrderResponse updatePaymentStatus(String orderNumber, PaymentStatus paymentStatus) {
+
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new OrderNotFoundException(orderNumber));
+
+        order.setPaymentStatus(paymentStatus);
+        Order updatedOrder = orderRepository.save(order);
+
+        log.info("Updated order {} payment status to {}", orderNumber, paymentStatus);
 
         return mapToResponse(updatedOrder);
     }

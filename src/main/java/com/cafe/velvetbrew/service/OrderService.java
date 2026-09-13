@@ -1,6 +1,7 @@
 package com.cafe.velvetbrew.service;
 
 import com.cafe.velvetbrew.common.enums.OrderStatus;
+import com.cafe.velvetbrew.common.enums.PaymentStatus;
 import com.cafe.velvetbrew.dto.CreateOrderRequest;
 import com.cafe.velvetbrew.dto.OrderResponse;
 
@@ -14,6 +15,14 @@ public interface OrderService {
     OrderResponse updateOrder(String orderNumber, CreateOrderRequest request);
 
     OrderResponse updateOrderStatus(String orderNumber, OrderStatus orderStatus);
+
+    /**
+     * Manual payment-status override, mainly for cash orders (Razorpay
+     * orders already get PaymentStatus.SUCCESS/FAILED set automatically by
+     * PaymentServiceImpl on signature verification, so this shouldn't
+     * normally be needed there).
+     */
+    OrderResponse updatePaymentStatus(String orderNumber, PaymentStatus paymentStatus);
 
     /**
      * Orders tagged to the currently authenticated account (most recent

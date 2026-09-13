@@ -19,6 +19,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByUser_IdOrderByCreatedAtDesc(Long userId);
 
+    List<Order> findAllByOrderByCreatedAtDesc();
+
     @Query(value = """
             SELECT
                 COUNT(*) AS totalOrders,

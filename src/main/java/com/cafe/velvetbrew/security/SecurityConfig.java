@@ -96,9 +96,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/customer/orders/*").permitAll()
                         .requestMatchers("/api/v1/customer/orders/**").hasAnyRole("ADMIN", "STAFF")
                         // Matched before the general /api/v1/admin/** ADMIN-only rule below:
-                        // updating an order's status is a counter/kitchen operation, so STAFF
-                        // needs it too, unlike the rest of the admin surface.
-                        .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/orders/*/status")
+                        // updating an order's status, or marking a cash payment paid/unpaid,
+                        // is a counter/kitchen operation, so STAFF needs both too, unlike the
+                        // rest of the admin surface.
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/orders/*/status",
+                                        "/api/v1/admin/orders/*/payment-status")
                                 .hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/inventory/**").hasAnyRole("ADMIN", "STAFF")

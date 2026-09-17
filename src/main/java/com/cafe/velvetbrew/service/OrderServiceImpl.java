@@ -25,8 +25,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -84,10 +86,13 @@ public class OrderServiceImpl implements OrderService {
         // Deduct recipe ingredients only after the order has an id to
         // reference on the stock movement. Insufficient stock throws and
         // rolls back the whole transaction, so an order is never persisted
-        // without the stock to back it.
+        // without the stock to back it. No second save() needed - savedOrder
+        // is still managed in this transaction, so JPA's dirty checking
+        // persists the flag at commit. (An explicit save() here would call
+        // merge() since the id is now non-null, and merge() barfs on the
+        // plain immutable List toOrderItems() hands back via Stream.toList().)
         recipeInventoryService.deductForOrder(savedOrder);
         savedOrder.setInventoryDeducted(true);
-        savedOrder = orderRepository.save(savedOrder);
 
         log.info("Created order {} for customer {} - {} item(s), subtotal {}, discount {}, total {}",
                 savedOrder.getOrderNumber(), customer.getId(), orderItems.size(), subtotal, discount,
@@ -163,9 +168,9 @@ public class OrderServiceImpl implements OrderService {
         Order updatedOrder = orderRepository.save(order);
 
         // Deduct ingredients for the NEW items - mirrors the restock above.
+        // No second save() needed; see the comment in createOrder().
         recipeInventoryService.deductForOrder(updatedOrder);
         updatedOrder.setInventoryDeducted(true);
-        updatedOrder = orderRepository.save(updatedOrder);
 
         log.info("Updated order {} - {} item(s), subtotal {}, discount {}, total {}",
                 orderNumber, orderItems.size(), subtotal, discount, order.getTotalAmount());
@@ -262,6 +267,11 @@ public class OrderServiceImpl implements OrderService {
 
     private List<OrderItem> toOrderItems(Order order, List<MenuPricingService.PricedItem> pricedItems) {
 
+        // Mutable on purpose - createOrder() assigns this straight onto
+        // order.setOrderItems(), and Stream.toList()'s immutable result
+        // blows up later with UnsupportedOperationException the moment
+        // Hibernate needs to clear/replace the collection (e.g. a second
+        // save() on the now-persistent order merges instead of persisting).
         return pricedItems.stream()
                 .map(priced -> OrderItem.builder()
                         .order(order)
@@ -270,7 +280,7 @@ public class OrderServiceImpl implements OrderService {
                         .unitPrice(priced.unitPrice())
                         .totalPrice(priced.lineTotal())
                         .build())
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     private OrderResponse mapToResponse(Order order) {

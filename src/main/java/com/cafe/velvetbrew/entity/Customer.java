@@ -23,7 +23,7 @@ public class Customer {
     @Column(name="full_name",nullable=false)
     private String fullName;
 
-    @Column(nullable=false,unique=true,length=15)
+    @Column(unique=true,length=15)
     private String mobile;
 
     @Column

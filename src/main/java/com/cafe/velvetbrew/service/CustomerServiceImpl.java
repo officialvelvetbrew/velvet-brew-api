@@ -17,8 +17,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -32,7 +34,15 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     public Customer findOrCreate(CustomerRequest request) {
 
-        return repository.findByMobile(request.getMobile())
+        // Mobile is the primary lookup key when present (matches how it's
+        // always been), but mobile is now optional - a customer identified
+        // only by email is looked up by that instead so repeat guest
+        // checkouts by email still match the same customer record.
+        Optional<Customer> existing = StringUtils.hasText(request.getMobile())
+                ? repository.findByMobile(request.getMobile())
+                : repository.findByEmail(request.getEmail());
+
+        return existing
                 .map(customer -> {
                     customer.setFullName(request.getFullName());
                     if (request.getEmail() != null) {

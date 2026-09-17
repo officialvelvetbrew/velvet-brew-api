@@ -1,5 +1,6 @@
 package com.cafe.velvetbrew.service;
 
+import com.cafe.velvetbrew.common.enums.AuthProvider;
 import com.cafe.velvetbrew.common.enums.Role;
 import com.cafe.velvetbrew.common.exception.EmailAlreadyExistsException;
 import com.cafe.velvetbrew.common.exception.InvalidResetTokenException;
@@ -82,6 +83,7 @@ public class AuthService {
 				.email(hasEmail ? request.getEmail() : null)
 				.phoneNumber(hasMobile ? request.getMobile() : null)
 				.password(passwordEncoder.encode(request.getPassword())).role(Role.CUSTOMER)
+				.provider(AuthProvider.EMAIL)
 				.enabled(true).build();
 
 		Users saved = repository.save(user);

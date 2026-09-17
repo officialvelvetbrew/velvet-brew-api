@@ -12,4 +12,6 @@ Optional<Customer> findByMobile(String mobile);
 
 boolean existsByMobile(String mobile);
 
+Optional<Customer> findByEmail(String email);
+
 }

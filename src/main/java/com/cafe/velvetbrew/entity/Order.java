@@ -70,6 +70,15 @@ public class Order {
     @Column(name = "special_instructions")
     private String specialInstructions;
 
+    /**
+     * True once this order's recipe ingredients have been deducted from
+     * inventory - lets status/edit transitions know whether a restock is
+     * owed before consuming again, without double-counting.
+     */
+    @Builder.Default
+    @Column(name = "inventory_deducted", nullable = false)
+    private Boolean inventoryDeducted = false;
+
     @OneToMany(mappedBy = "order",
                cascade = CascadeType.ALL,
                orphanRemoval = true)

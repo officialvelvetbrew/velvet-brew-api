@@ -39,6 +39,7 @@ public class OrderServiceImpl implements OrderService {
     private final MenuPricingService menuPricingService;
     private final OfferApplicationService offerApplicationService;
     private final UserRepository userRepository;
+    private final RecipeInventoryService recipeInventoryService;
 
     @Override
     public OrderResponse createOrder(CreateOrderRequest request) {
@@ -80,6 +81,14 @@ public class OrderServiceImpl implements OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
+        // Deduct recipe ingredients only after the order has an id to
+        // reference on the stock movement. Insufficient stock throws and
+        // rolls back the whole transaction, so an order is never persisted
+        // without the stock to back it.
+        recipeInventoryService.deductForOrder(savedOrder);
+        savedOrder.setInventoryDeducted(true);
+        savedOrder = orderRepository.save(savedOrder);
+
         log.info("Created order {} for customer {} - {} item(s), subtotal {}, discount {}, total {}",
                 savedOrder.getOrderNumber(), customer.getId(), orderItems.size(), subtotal, discount,
                 order.getTotalAmount());
@@ -111,6 +120,13 @@ public class OrderServiceImpl implements OrderService {
 
         order.setCustomer(customer);
         order.setSpecialInstructions(request.getSpecialInstructions());
+
+        // Release the ingredients consumed for the CURRENT items before they
+        // get replaced below - this must run before the collection is
+        // cleared, since it reads order.getOrderItems() as they stand now.
+        if (Boolean.TRUE.equals(order.getInventoryDeducted())) {
+            recipeInventoryService.restockForOrder(order);
+        }
 
         // Remove existing items. orderItems is a cascade=ALL,
         // orphanRemoval=true collection, so the old rows must be deleted by
@@ -145,6 +161,11 @@ public class OrderServiceImpl implements OrderService {
         order.getOrderItems().addAll(orderItems);
 
         Order updatedOrder = orderRepository.save(order);
+
+        // Deduct ingredients for the NEW items - mirrors the restock above.
+        recipeInventoryService.deductForOrder(updatedOrder);
+        updatedOrder.setInventoryDeducted(true);
+        updatedOrder = orderRepository.save(updatedOrder);
 
         log.info("Updated order {} - {} item(s), subtotal {}, discount {}, total {}",
                 orderNumber, orderItems.size(), subtotal, discount, order.getTotalAmount());
@@ -181,6 +202,19 @@ public class OrderServiceImpl implements OrderService {
 
         Order order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new OrderNotFoundException(orderNumber));
+
+        // Cancelling/rejecting an order releases its recipe ingredients back
+        // to stock, since the items were never actually made. Guarded by
+        // inventoryDeducted so this can't double-restock (e.g. two status
+        // updates to CANCELLED in a row, or an order that never had a
+        // matching recipe to begin with).
+        boolean releasesInventory = (orderStatus == OrderStatus.CANCELLED || orderStatus == OrderStatus.REJECTED)
+                && Boolean.TRUE.equals(order.getInventoryDeducted());
+
+        if (releasesInventory) {
+            recipeInventoryService.restockForOrder(order);
+            order.setInventoryDeducted(false);
+        }
 
         order.setOrderStatus(orderStatus);
         Order updatedOrder = orderRepository.save(order);

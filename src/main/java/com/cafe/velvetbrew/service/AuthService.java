@@ -84,6 +84,7 @@ public class AuthService {
 				.phoneNumber(hasMobile ? request.getMobile() : null)
 				.password(passwordEncoder.encode(request.getPassword())).role(Role.CUSTOMER)
 				.provider(AuthProvider.EMAIL)
+				.emailVerified(false)
 				.enabled(true).build();
 
 		Users saved = repository.save(user);

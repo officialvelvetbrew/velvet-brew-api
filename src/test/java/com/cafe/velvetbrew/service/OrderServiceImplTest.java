@@ -48,12 +48,16 @@ class OrderServiceImplTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private RecipeInventoryService recipeInventoryService;
+
     @Test
     void createOrderChargesOfferPriceNotListPrice() {
 
         MenuPricingService menuPricingService = new MenuPricingService(menuItemRepository);
         OrderServiceImpl orderService = new OrderServiceImpl(
-                orderRepository, customerService, menuPricingService, offerApplicationService, userRepository);
+                orderRepository, customerService, menuPricingService, offerApplicationService, userRepository,
+                recipeInventoryService);
 
         MenuItem cheeseSandwich = MenuItem.builder()
                 .id(10L)

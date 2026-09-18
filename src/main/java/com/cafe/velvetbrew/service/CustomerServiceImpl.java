@@ -37,10 +37,19 @@ public class CustomerServiceImpl implements CustomerService {
         // Mobile is the primary lookup key when present (matches how it's
         // always been), but mobile is now optional - a customer identified
         // only by email is looked up by that instead so repeat guest
-        // checkouts by email still match the same customer record.
-        Optional<Customer> existing = StringUtils.hasText(request.getMobile())
-                ? repository.findByMobile(request.getMobile())
-                : repository.findByEmail(request.getEmail());
+        // checkouts by email still match the same customer record. When
+        // neither is provided there's no identifier to match on, so a new
+        // customer is always created (findByEmail(null) would otherwise
+        // match any existing customer with a null email, via Spring Data's
+        // automatic null -> IS NULL translation).
+        Optional<Customer> existing;
+        if (StringUtils.hasText(request.getMobile())) {
+            existing = repository.findByMobile(request.getMobile());
+        } else if (StringUtils.hasText(request.getEmail())) {
+            existing = repository.findByEmail(request.getEmail());
+        } else {
+            existing = Optional.empty();
+        }
 
         return existing
                 .map(customer -> {

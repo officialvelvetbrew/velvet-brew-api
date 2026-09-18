@@ -9,7 +9,9 @@ import com.cafe.velvetbrew.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -64,7 +66,8 @@ public class CustomerController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update customer details",
-            description = "Update customer's name and email address")
+            description = "Update customer's name and contact details. Mobile and email are both optional " +
+                    "and independent of each other - either, both, or neither may be supplied.")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Customer updated successfully"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request body"),
@@ -75,7 +78,20 @@ public class CustomerController {
     public ApiResponse<CustomerResponse> update(
             @Parameter(description = "Customer ID", required = true, example = "1")
             @PathVariable Long id,
-            @Valid @RequestBody CustomerRequest request) {
+            @RequestBody(content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = CustomerRequest.class),
+                    examples = {
+                            @ExampleObject(name = "Email and mobile", summary = "Both contact details provided",
+                                    value = "{\"fullName\":\"John Doe\",\"mobile\":\"9876543210\",\"email\":\"john.doe@example.com\"}"),
+                            @ExampleObject(name = "Email only", summary = "Only email provided",
+                                    value = "{\"fullName\":\"Jane Smith\",\"email\":\"jane.smith@example.com\"}"),
+                            @ExampleObject(name = "Mobile only", summary = "Only mobile provided",
+                                    value = "{\"fullName\":\"Alex Kim\",\"mobile\":\"9123456789\"}"),
+                            @ExampleObject(name = "No contact details", summary = "Neither mobile nor email provided",
+                                    value = "{\"fullName\":\"Sam Patel\"}")
+                    }))
+            @Valid @org.springframework.web.bind.annotation.RequestBody CustomerRequest request) {
 
         return ApiResponse.success(customerService.update(id, request));
 

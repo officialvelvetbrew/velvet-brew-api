@@ -37,7 +37,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class AuthService {
-
 	private final UserRepository repository;
 	private final RoleFunctionRepository roleFunctionRepository;
 	private final PasswordResetTokenRepository passwordResetTokenRepository;
@@ -55,7 +54,6 @@ public class AuthService {
 	private String resetPasswordFrontendUrl;
 
 	public ApiResponse<Object> register(RegisterRequest request) {
-
 		boolean hasEmail = hasText(request.getEmail());
 		boolean hasMobile = hasText(request.getMobile());
 
@@ -63,12 +61,6 @@ public class AuthService {
 			throw new IllegalArgumentException("Either email or mobile is required.");
 		}
 
-		// DTO-level @AssertTrue already rejects neither being present too, but a
-		// service-layer guard is what actually protects the uniqueness checks
-		// below from running existsByEmail(null)/existsByPhoneNumber(null) -
-		// Spring Data turns a null equality parameter into "IS NULL", which
-		// would otherwise block registration against any other null-email
-		// (phone-only) account already in the table.
 		if (hasEmail && repository.existsByEmail(request.getEmail())) {
 			log.warn("Registration rejected - email already in use: {}", request.getEmail());
 			throw new EmailAlreadyExistsException("Email already registered.");
@@ -103,15 +95,8 @@ public class AuthService {
 		return value != null && !value.isBlank();
 	}
 
-	/**
-	 * Always responds with the same generic success message regardless of
-	 * whether the email is registered, so this endpoint can't be used to
-	 * enumerate which addresses have an account.
-	 */
 	public ApiResponse<Object> forgotPassword(ForgotPasswordRequest request) {
-
 		repository.findByEmail(request.getEmail()).ifPresent(user -> {
-
 			passwordResetTokenRepository.invalidateActiveTokensForUser(user);
 
 			String token = generateToken();
@@ -131,10 +116,6 @@ public class AuthService {
 				emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
 				log.info("Password reset token issued for user id={}", user.getId());
 			} catch (MailException ex) {
-				// Swallowed so a mail-server outage can't be distinguished from an
-				// unregistered email by the caller - both return the same generic
-				// success response. The token still exists; it's just unreachable
-				// until mail delivery is fixed.
 				log.error("Failed to send password reset email for user id={}", user.getId(), ex);
 			}
 		});
@@ -147,7 +128,6 @@ public class AuthService {
 	}
 
 	public ApiResponse<Object> resetPassword(ResetPasswordRequest request) {
-
 		PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.getToken())
 				.orElseThrow(() -> new InvalidResetTokenException("Invalid or expired reset token."));
 
@@ -172,7 +152,6 @@ public class AuthService {
 	}
 
 	private static String generateToken() {
-
 		byte[] randomBytes = new byte[32];
 		SECURE_RANDOM.nextBytes(randomBytes);
 
@@ -180,7 +159,6 @@ public class AuthService {
 	}
 
 	public AuthResponse login(LoginRequest request) {
-
 		authenticationManager.authenticate(
 				new UsernamePasswordAuthenticationToken(
 						request.getUsername(),
@@ -197,14 +175,8 @@ public class AuthService {
 		return buildAuthResponse(user.getId(), token);
 	}
 
-	/**
-	 * Re-derives the current user's profile, roles and granted functions
-	 * from a valid JWT, without minting a new token - used by GET /me so a
-	 * front end can refresh what it's allowed to show after a page reload.
-	 */
 	@Transactional(readOnly = true)
 	public AuthResponse me(String username) {
-
 		Users user = repository.findByEmail(username)
 				.or(() -> repository.findByPhoneNumber(username))
 				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
@@ -212,14 +184,8 @@ public class AuthService {
 		return buildAuthResponse(user.getId(), null);
 	}
 
-	/**
-	 * Loaded fresh (rather than reusing a possibly-detached entity) so the
-	 * lazy roles collection is guaranteed fetchable within this method's own
-	 * transaction, regardless of where the caller got the user id from.
-	 */
 	@Transactional(readOnly = true)
 	public AuthResponse buildAuthResponse(Long userId, String token) {
-
 		Users user = repository.findById(userId)
 				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
@@ -247,13 +213,7 @@ public class AuthService {
 				.build();
 	}
 
-	/**
-	 * A user can hold more than one role, and two roles can disagree on what
-	 * a function permits (e.g. one grants read-only, another grants create
-	 * too) - flags are merged per function code, most permissive wins.
-	 */
 	private List<FunctionPermissionResponse> mergeFunctionPermissions(List<AppRole> activeRoles) {
-
 		Set<Long> roleIds = activeRoles.stream().map(AppRole::getId).collect(Collectors.toSet());
 
 		if (roleIds.isEmpty()) {
@@ -263,7 +223,6 @@ public class AuthService {
 		Map<String, boolean[]> merged = new LinkedHashMap<>();
 
 		for (RoleFunction grant : roleFunctionRepository.findByRoleIdIn(roleIds)) {
-
 			if (!Boolean.TRUE.equals(grant.getFunction().getActive())) {
 				continue;
 			}
@@ -288,5 +247,4 @@ public class AuthService {
 				.sorted((a, b) -> a.getFunctionCode().compareTo(b.getFunctionCode()))
 				.toList();
 	}
-
 }

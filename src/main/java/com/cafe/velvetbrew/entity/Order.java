@@ -1,6 +1,5 @@
 package com.cafe.velvetbrew.entity;
 
-
 import com.cafe.velvetbrew.common.enums.OrderStatus;
 import com.cafe.velvetbrew.common.enums.PaymentStatus;
 import jakarta.persistence.*;
@@ -20,7 +19,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Order {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -32,11 +30,6 @@ public class Order {
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
-    /**
-     * The logged-in account that placed this order, if any - null for guest
-     * checkout. Independent of {@link #customer}, which is the name/mobile
-     * captured at checkout regardless of login state.
-     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private Users user;
@@ -70,11 +63,6 @@ public class Order {
     @Column(name = "special_instructions")
     private String specialInstructions;
 
-    /**
-     * True once this order's recipe ingredients have been deducted from
-     * inventory - lets status/edit transitions know whether a restock is
-     * owed before consuming again, without double-counting.
-     */
     @Builder.Default
     @Column(name = "inventory_deducted", nullable = false)
     private Boolean inventoryDeducted = false;
@@ -83,7 +71,6 @@ public class Order {
                cascade = CascadeType.ALL,
                orphanRemoval = true)
     private List<OrderItem> orderItems;
-
 
     @CreationTimestamp
     private LocalDateTime createdAt;

@@ -1,6 +1,5 @@
 package com.cafe.velvetbrew.service;
 
-
 import com.cafe.velvetbrew.common.enums.OrderStatus;
 import com.cafe.velvetbrew.common.enums.PaymentStatus;
 import com.cafe.velvetbrew.common.exception.OrderNotFoundException;
@@ -35,7 +34,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class OrderServiceImpl implements OrderService {
-
     private final OrderRepository orderRepository;
     private final CustomerService customerService;
     private final MenuPricingService menuPricingService;
@@ -45,7 +43,6 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderResponse createOrder(CreateOrderRequest request) {
-
         Customer customer = customerService.findOrCreate(request.getCustomer());
 
         Order order = Order.builder()
@@ -62,11 +59,12 @@ public class OrderServiceImpl implements OrderService {
 
         List<OrderItem> orderItems = toOrderItems(order, pricedItems);
 
+        recipeInventoryService.assertStockAvailable(orderItems);
+
         BigDecimal discount = BigDecimal.ZERO;
         Offer appliedOffer = null;
 
         if (StringUtils.hasText(request.getOfferCode())) {
-
             OfferApplicationService.OfferDiscount result =
                     offerApplicationService.apply(request.getOfferCode(), subtotal, customer, order.getOrderNumber());
 
@@ -93,7 +91,6 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public List<OrderResponse> getOrderList() {
-
         return orderRepository.findAllByOrderByCreatedAtDesc()
                 .stream()
                 .map(this::mapToResponse)
@@ -103,7 +100,6 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse updateOrder(String orderNumber, CreateOrderRequest request) {
-
         Order order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> {
                     log.warn("Order update failed - order {} not found", orderNumber);
@@ -115,23 +111,11 @@ public class OrderServiceImpl implements OrderService {
         order.setCustomer(customer);
         order.setSpecialInstructions(request.getSpecialInstructions());
 
-        // Release the ingredients consumed for the CURRENT items before they
-        // get replaced below - this must run before the collection is
-        // cleared, since it reads order.getOrderItems() as they stand now.
         boolean wasDeducted = Boolean.TRUE.equals(order.getInventoryDeducted());
         if (wasDeducted) {
             recipeInventoryService.restockForOrder(order);
         }
 
-        // Remove existing items. orderItems is a cascade=ALL,
-        // orphanRemoval=true collection, so the old rows must be deleted by
-        // clearing and re-populating this SAME collection instance -
-        // replacing it outright with a new List (as this used to do via
-        // order.setOrderItems(...) below) breaks Hibernate's ownership
-        // tracking for the pending orphan-removal deletes and throws
-        // "A collection with cascade=all-delete-orphan was no longer
-        // referenced by the owning entity instance" on every edit of an
-        // order that already had items.
         order.getOrderItems().clear();
 
         List<MenuPricingService.PricedItem> pricedItems = menuPricingService.price(request.getItems());
@@ -139,12 +123,8 @@ public class OrderServiceImpl implements OrderService {
 
         List<OrderItem> orderItems = toOrderItems(order, pricedItems);
 
-        // An offer already redeemed on this order at creation time has its
-        // discount recomputed against the new subtotal (items may have
-        // changed), but usage counters/eligibility are not re-checked -
-        // that already happened once, at redemption. Applying a NEW offer
-        // via update isn't supported: apply() would double-count usage
-        // against this same order, so offerCode on an update is ignored.
+        recipeInventoryService.assertStockAvailable(orderItems);
+
         BigDecimal discount = order.getOffer() != null
                 ? offerApplicationService.recompute(order.getOffer(), subtotal)
                 : BigDecimal.ZERO;
@@ -157,10 +137,6 @@ public class OrderServiceImpl implements OrderService {
 
         Order updatedOrder = orderRepository.save(order);
 
-        // Stock only moves for COMPLETED orders. An order edited after it was
-        // already deducted had its old items restocked above, so the new
-        // items are deducted here and the flag stays true. Orders that were
-        // never deducted are left for the COMPLETED transition to handle.
         if (wasDeducted) {
             recipeInventoryService.deductForOrder(updatedOrder);
         }
@@ -174,7 +150,6 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public OrderResponse getOrder(String orderNumber) {
-
         Order order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() ->
                         new OrderNotFoundException(orderNumber));
@@ -185,7 +160,6 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public List<OrderResponse> getMyOrders() {
-
         Users user = resolveAuthenticatedUser()
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
@@ -197,15 +171,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderResponse updateOrderStatus(String orderNumber, OrderStatus orderStatus) {
-
         Order order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new OrderNotFoundException(orderNumber));
 
-        // Cancelling/rejecting an order releases its recipe ingredients back
-        // to stock, since the items were never actually made. Guarded by
-        // inventoryDeducted so this can't double-restock (e.g. two status
-        // updates to CANCELLED in a row, or an order that never had a
-        // matching recipe to begin with).
         boolean releasesInventory = (orderStatus == OrderStatus.CANCELLED || orderStatus == OrderStatus.REJECTED)
                 && Boolean.TRUE.equals(order.getInventoryDeducted());
 
@@ -214,10 +182,6 @@ public class OrderServiceImpl implements OrderService {
             order.setInventoryDeducted(false);
         }
 
-        // Ingredients are only consumed once an order is actually COMPLETED
-        // (not when it's placed), and only once: inventoryDeducted makes a
-        // repeated COMPLETED update a no-op. Insufficient stock throws and
-        // rolls back this whole transaction, leaving the status unchanged.
         if (orderStatus == OrderStatus.COMPLETED && !Boolean.TRUE.equals(order.getInventoryDeducted())) {
             recipeInventoryService.deductForOrder(order);
             order.setInventoryDeducted(true);
@@ -233,7 +197,6 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderResponse updatePaymentStatus(String orderNumber, PaymentStatus paymentStatus) {
-
         Order order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new OrderNotFoundException(orderNumber));
 
@@ -245,14 +208,7 @@ public class OrderServiceImpl implements OrderService {
         return mapToResponse(updatedOrder);
     }
 
-    /**
-     * Never null-checked by callers upstream: guest checkout (no bearer
-     * token, or an anonymous one) is the common case, so this returns
-     * empty rather than throwing - only getMyOrders() treats an absent
-     * user as an error, since that endpoint requires a JWT already.
-     */
     private Optional<Users> resolveAuthenticatedUser() {
-
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null
@@ -268,12 +224,6 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private List<OrderItem> toOrderItems(Order order, List<MenuPricingService.PricedItem> pricedItems) {
-
-        // Mutable on purpose - createOrder() assigns this straight onto
-        // order.setOrderItems(), and Stream.toList()'s immutable result
-        // blows up later with UnsupportedOperationException the moment
-        // Hibernate needs to clear/replace the collection (e.g. a second
-        // save() on the now-persistent order merges instead of persisting).
         return pricedItems.stream()
                 .map(priced -> OrderItem.builder()
                         .order(order)
@@ -286,7 +236,6 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private OrderResponse mapToResponse(Order order) {
-
         List<OrderItemResponse> items =
                 order.getOrderItems()
                         .stream()
@@ -312,7 +261,6 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private OrderItemResponse mapItem(OrderItem item) {
-
         return OrderItemResponse.builder()
                 .menuId(item.getMenuItem().getId())
                 .menuName(item.getMenuItem().getName())
@@ -321,5 +269,4 @@ public class OrderServiceImpl implements OrderService {
                 .totalPrice(item.getTotalPrice())
                 .build();
     }
-
 }

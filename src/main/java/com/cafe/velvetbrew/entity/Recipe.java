@@ -27,7 +27,6 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Recipe {
-
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -56,7 +55,6 @@ public class Recipe {
 
 	@PrePersist
 	protected void onCreate() {
-
 		LocalDateTime now = LocalDateTime.now();
 
 		createdAt = now;
@@ -65,7 +63,6 @@ public class Recipe {
 
 	@PreUpdate
 	protected void onUpdate() {
-
 		updatedAt = LocalDateTime.now();
 	}
 }

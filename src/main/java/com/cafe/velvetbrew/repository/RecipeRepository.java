@@ -10,7 +10,6 @@ import org.springframework.data.repository.query.Param;
 import com.cafe.velvetbrew.entity.Recipe;
 
 public interface RecipeRepository extends JpaRepository<Recipe, Long> {
-
 	boolean existsByMenuItemId(Long menuItemId);
 
 	@Query("""

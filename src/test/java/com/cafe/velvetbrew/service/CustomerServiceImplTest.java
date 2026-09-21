@@ -20,7 +20,6 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CustomerServiceImplTest {
-
     @Mock
     private CustomerRepository repository;
 
@@ -32,7 +31,6 @@ class CustomerServiceImplTest {
 
     @Test
     void createsCustomerWithBothMobileAndEmail() {
-
         when(repository.findByMobile("9876543210")).thenReturn(Optional.empty());
         when(repository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -47,7 +45,6 @@ class CustomerServiceImplTest {
 
     @Test
     void createsCustomerWithEmailOnlyLookedUpByEmail() {
-
         when(repository.findByEmail("jane.smith@example.com")).thenReturn(Optional.empty());
         when(repository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -62,7 +59,6 @@ class CustomerServiceImplTest {
 
     @Test
     void createsCustomerWithMobileOnlyLookedUpByMobile() {
-
         when(repository.findByMobile("9123456789")).thenReturn(Optional.empty());
         when(repository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -77,7 +73,6 @@ class CustomerServiceImplTest {
 
     @Test
     void createsCustomerWithNoContactDetailsWithoutLookingUpByNull() {
-
         when(repository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         CustomerRequest request = request("Sam Patel", null, null);
@@ -87,14 +82,12 @@ class CustomerServiceImplTest {
         assertThat(customer.getFullName()).isEqualTo("Sam Patel");
         assertThat(customer.getMobile()).isNull();
         assertThat(customer.getEmail()).isNull();
-        // Neither lookup should run - findByEmail(null) would otherwise match
-        // any existing customer whose email happens to be null.
+
         verify(repository, never()).findByMobile(any());
         verify(repository, never()).findByEmail(any());
     }
 
     private static CustomerRequest request(String fullName, String mobile, String email) {
-
         CustomerRequest request = new CustomerRequest();
         request.setFullName(fullName);
         request.setMobile(mobile);

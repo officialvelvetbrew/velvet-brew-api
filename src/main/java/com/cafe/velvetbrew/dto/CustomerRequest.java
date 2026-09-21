@@ -13,7 +13,6 @@ import lombok.Setter;
         "optional contact details and may be provided individually, together, or omitted entirely - " +
         "contact information is not required to create or update a customer.")
 public class CustomerRequest {
-
     @NotBlank
     @Schema(description = "Customer's full name", example = "John Doe", requiredMode = Schema.RequiredMode.REQUIRED)
     private String fullName;

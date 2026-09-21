@@ -8,7 +8,6 @@ import lombok.Data;
 
 @Data
 public class RecipeItemRequest {
-
 	@NotNull(message = "Inventory item is required")
 	private Long inventoryItemId;
 

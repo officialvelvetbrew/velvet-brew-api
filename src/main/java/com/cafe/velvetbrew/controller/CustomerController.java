@@ -18,14 +18,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/v1/admin/customers")
 @RequiredArgsConstructor
 @Tag(name = "Customer Management", description = "APIs for managing customers, viewing order history, and customer analytics")
 public class CustomerController {
-
     private final CustomerService customerService;
 
     @GetMapping
@@ -39,9 +36,7 @@ public class CustomerController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Admin role required")
     })
     public ApiResponse<CustomerListResponse> getAll() {
-
         return ApiResponse.success(customerService.getAllWithStats());
-
     }
 
     @GetMapping("/{id}")
@@ -59,9 +54,7 @@ public class CustomerController {
     public ApiResponse<CustomerDetailResponse> getById(
             @Parameter(description = "Customer ID", required = true, example = "1")
             @PathVariable Long id) {
-
         return ApiResponse.success(customerService.getCustomerWithOrders(id));
-
     }
 
     @PutMapping("/{id}")
@@ -92,9 +85,7 @@ public class CustomerController {
                                     value = "{\"fullName\":\"Sam Patel\"}")
                     }))
             @Valid @org.springframework.web.bind.annotation.RequestBody CustomerRequest request) {
-
         return ApiResponse.success(customerService.update(id, request));
-
     }
 
     @DeleteMapping("/{id}")
@@ -109,10 +100,8 @@ public class CustomerController {
     public ApiResponse<Void> delete(
             @Parameter(description = "Customer ID", required = true, example = "1")
             @PathVariable Long id) {
-
         customerService.delete(id);
 
         return ApiResponse.success("Customer deleted successfully", null);
-
     }
 }

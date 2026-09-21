@@ -11,7 +11,6 @@ import lombok.Data;
 
 @Data
 public class CreateRecipeRequest {
-
 	@NotNull(message = "Menu item is required")
 	private Long menuItemId;
 

@@ -9,9 +9,7 @@ import com.cafe.velvetbrew.entity.RecipeItem;
 
 @Component
 public class RecipeMapper {
-
 	public RecipeResponse toResponse(Recipe recipe) {
-
 		return RecipeResponse.builder()
 
 				.id(recipe.getId())
@@ -36,7 +34,6 @@ public class RecipeMapper {
 	}
 
 	private RecipeItemResponse toItemResponse(RecipeItem item) {
-
 		return RecipeItemResponse.builder()
 
 				.inventoryItemId(item.getInventoryItem().getId())

@@ -8,7 +8,6 @@ import lombok.Data;
 
 @Data
 public class UpdateRecipeRequest {
-
 	@Size(max = 150, message = "Recipe name must not exceed 150 characters")
 	private String name;
 
@@ -17,9 +16,6 @@ public class UpdateRecipeRequest {
 
 	private Boolean enabled;
 
-	/**
-	 * When provided, replaces the recipe's entire ingredient list.
-	 */
 	@Valid
 	private List<RecipeItemRequest> items;
 }

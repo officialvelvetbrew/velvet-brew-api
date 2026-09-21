@@ -33,7 +33,6 @@ import com.cafe.velvetbrew.repository.RecipeRepository;
 
 @ExtendWith(MockitoExtension.class)
 class RecipeServiceImplTest {
-
     @Mock
     private RecipeRepository recipeRepository;
 
@@ -103,8 +102,6 @@ class RecipeServiceImplTest {
 
         RecipeResponse response = service.update(7L, patch);
 
-        // Same row, new quantity - re-inserting (recipe, beans) was the 500:
-        // it violated uk_recipe_items_recipe_inventory before the old row went.
         assertThat(recipe.getRecipeItems()).containsExactly(original);
         assertThat(original.getQuantity()).isEqualByComparingTo("20");
         assertThat(response.getName()).isEqualTo("Big Latte");

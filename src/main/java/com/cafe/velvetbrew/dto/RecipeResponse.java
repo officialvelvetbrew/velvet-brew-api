@@ -9,7 +9,6 @@ import lombok.Data;
 @Data
 @Builder
 public class RecipeResponse {
-
 	private Long id;
 
 	private Long menuItemId;

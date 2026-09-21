@@ -29,7 +29,6 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/v1/inventory/recipes")
 @RequiredArgsConstructor
 public class RecipeController {
-
 	private final RecipeService service;
 
 	@Operation(summary = "Create a recipe", description = "One recipe per menu item; each ingredient may appear once.")
@@ -41,7 +40,6 @@ public class RecipeController {
 			@Valid
 			@RequestBody
 			CreateRecipeRequest request) {
-
 		return ResponseEntity
 				.status(HttpStatus.CREATED)
 				.body(service.create(request));
@@ -51,7 +49,6 @@ public class RecipeController {
 	@ApiResponse(responseCode = "200", description = "OK")
 	@GetMapping
 	public ResponseEntity<List<RecipeResponse>> getAll() {
-
 		return ResponseEntity.ok(
 				service.getAll()
 		);
@@ -63,7 +60,6 @@ public class RecipeController {
 	@GetMapping("/{id}")
 	public ResponseEntity<RecipeResponse> getById(
 			@PathVariable Long id) {
-
 		return ResponseEntity.ok(
 				service.getById(id)
 		);
@@ -75,7 +71,6 @@ public class RecipeController {
 	@GetMapping("/menu-item/{menuItemId}")
 	public ResponseEntity<RecipeResponse> getByMenuItemId(
 			@PathVariable Long menuItemId) {
-
 		return ResponseEntity.ok(
 				service.getByMenuItemId(menuItemId)
 		);
@@ -92,7 +87,6 @@ public class RecipeController {
 			@Valid
 			@RequestBody
 			UpdateRecipeRequest request) {
-
 		return ResponseEntity.ok(
 				service.update(id, request)
 		);
@@ -104,7 +98,6 @@ public class RecipeController {
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> delete(
 			@PathVariable Long id) {
-
 		service.delete(id);
 
 		return ResponseEntity.noContent().build();

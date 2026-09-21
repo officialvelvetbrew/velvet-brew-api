@@ -27,21 +27,11 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Transactional
 public class CustomerServiceImpl implements CustomerService {
-
     private final CustomerRepository repository;
     private final OrderRepository orderRepository;
 
     @Override
     public Customer findOrCreate(CustomerRequest request) {
-
-        // Mobile is the primary lookup key when present (matches how it's
-        // always been), but mobile is now optional - a customer identified
-        // only by email is looked up by that instead so repeat guest
-        // checkouts by email still match the same customer record. When
-        // neither is provided there's no identifier to match on, so a new
-        // customer is always created (findByEmail(null) would otherwise
-        // match any existing customer with a null email, via Spring Data's
-        // automatic null -> IS NULL translation).
         Optional<Customer> existing;
         if (StringUtils.hasText(request.getMobile())) {
             existing = repository.findByMobile(request.getMobile());
@@ -71,7 +61,6 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     @Transactional(readOnly = true)
     public CustomerResponse getById(Long id) {
-
         Customer customer = repository.findById(id)
                 .orElseThrow(() -> new CustomerNotFoundException(id));
 
@@ -81,7 +70,6 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     @Transactional(readOnly = true)
     public CustomerDetailResponse getCustomerWithOrders(Long id) {
-
         Customer customer = repository.findById(id)
                 .orElseThrow(() -> new CustomerNotFoundException(id));
 
@@ -107,7 +95,6 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     @Transactional(readOnly = true)
     public List<CustomerResponse> getAll() {
-
         return repository.findAll()
                 .stream()
                 .map(CustomerMapper::toResponse)
@@ -117,7 +104,6 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     @Transactional(readOnly = true)
     public CustomerListResponse getAllWithStats() {
-
         List<Customer> allCustomers = repository.findAll();
         OrderRepository.GlobalStatsRow globalStats = orderRepository.getGlobalStats();
 
@@ -145,7 +131,6 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public CustomerResponse update(Long id, CustomerRequest request) {
-
         Customer customer = repository.findById(id)
                 .orElseThrow(() -> new CustomerNotFoundException(id));
 
@@ -159,7 +144,6 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public void delete(Long id) {
-
         if (!repository.existsById(id)) {
             throw new CustomerNotFoundException(id);
         }
@@ -170,7 +154,6 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     private CustomerOrderHistoryResponse mapOrderToHistory(Order order) {
-
         List<OrderItemResponse> items = order.getOrderItems().stream()
                 .map(item -> OrderItemResponse.builder()
                         .menuId(item.getMenuItem().getId())

@@ -33,14 +33,8 @@ import com.cafe.velvetbrew.repository.MenuItemRepository;
 import com.cafe.velvetbrew.repository.OrderRepository;
 import com.cafe.velvetbrew.repository.UserRepository;
 
-/**
- * Inventory only moves when an order reaches COMPLETED: placing an order or
- * leaving it PENDING/cancelled must not touch stock, and repeating COMPLETED
- * must not deduct twice.
- */
 @ExtendWith(MockitoExtension.class)
 class OrderInventoryLifecycleTest {
-
     @Mock
     private OrderRepository orderRepository;
 
@@ -188,5 +182,28 @@ class OrderInventoryLifecycleTest {
 
         assertThatThrownBy(() -> orderService.updateOrderStatus("VB-TEST-1", OrderStatus.COMPLETED))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void placingAnOrderThatCannotBeMadeIsRejectedAndNothingIsSaved() {
+        when(menuItemRepository.findById(10L)).thenReturn(Optional.of(espresso));
+        when(customerService.findOrCreate(any())).thenReturn(Customer.builder().id(1L).fullName("T").build());
+        org.mockito.Mockito.doThrow(new IllegalStateException("Not enough stock to make Espresso"))
+                .when(recipeInventoryService).assertStockAvailable(any());
+
+        CreateOrderRequest request = new CreateOrderRequest();
+        CustomerRequest customer = new CustomerRequest();
+        customer.setFullName("T");
+        request.setCustomer(customer);
+        OrderItemRequest item = new OrderItemRequest();
+        item.setMenuId(10L);
+        item.setQuantity(500);
+        request.setItems(List.of(item));
+
+        assertThatThrownBy(() -> orderService.createOrder(request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Not enough stock");
+
+        verify(orderRepository, never()).save(any());
     }
 }

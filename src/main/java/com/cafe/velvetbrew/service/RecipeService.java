@@ -7,7 +7,6 @@ import com.cafe.velvetbrew.dto.RecipeResponse;
 import com.cafe.velvetbrew.dto.UpdateRecipeRequest;
 
 public interface RecipeService {
-
 	RecipeResponse create(CreateRecipeRequest request);
 
 	List<RecipeResponse> getAll();

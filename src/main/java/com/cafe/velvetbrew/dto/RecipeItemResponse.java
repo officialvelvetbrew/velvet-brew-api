@@ -10,7 +10,6 @@ import lombok.Data;
 @Data
 @Builder
 public class RecipeItemResponse {
-
 	private Long inventoryItemId;
 	private String inventoryItemName;
 	private InventoryUnit unit;

@@ -12,7 +12,6 @@ import com.cafe.velvetbrew.repository.OrderRepository;
 import com.cafe.velvetbrew.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -24,15 +23,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-/**
- * Exercises OrderServiceImpl wired to the real MenuPricingService (only the
- * repository is mocked), because createOrder's discounted-total behavior is
- * the composition of the two - PaymentServiceImpl.createPayment delegates
- * to this same method for its amount, so this also covers that path.
- */
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplTest {
-
     @Mock
     private OrderRepository orderRepository;
 
@@ -53,7 +45,6 @@ class OrderServiceImplTest {
 
     @Test
     void createOrderChargesOfferPriceNotListPrice() {
-
         MenuPricingService menuPricingService = new MenuPricingService(menuItemRepository);
         OrderServiceImpl orderService = new OrderServiceImpl(
                 orderRepository, customerService, menuPricingService, offerApplicationService, userRepository,

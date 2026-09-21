@@ -13,7 +13,6 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class CustomerRequestValidationTest {
-
     private static ValidatorFactory validatorFactory;
     private static Validator validator;
 
@@ -30,7 +29,6 @@ class CustomerRequestValidationTest {
 
     @Test
     void passesWhenNeitherMobileNorEmailProvided() {
-
         CustomerRequest request = request("Sam Patel", null, null);
 
         assertThat(validator.validate(request)).isEmpty();
@@ -38,7 +36,6 @@ class CustomerRequestValidationTest {
 
     @Test
     void passesWhenOnlyEmailProvided() {
-
         CustomerRequest request = request("Jane Smith", null, "jane.smith@example.com");
 
         assertThat(validator.validate(request)).isEmpty();
@@ -46,7 +43,6 @@ class CustomerRequestValidationTest {
 
     @Test
     void passesWhenOnlyMobileProvided() {
-
         CustomerRequest request = request("Alex Kim", "9123456789", null);
 
         assertThat(validator.validate(request)).isEmpty();
@@ -54,7 +50,6 @@ class CustomerRequestValidationTest {
 
     @Test
     void passesWhenBothMobileAndEmailProvided() {
-
         CustomerRequest request = request("John Doe", "9876543210", "john.doe@example.com");
 
         assertThat(validator.validate(request)).isEmpty();
@@ -62,7 +57,6 @@ class CustomerRequestValidationTest {
 
     @Test
     void passesWhenBothAreBlankStrings() {
-
         CustomerRequest request = request("Sam Patel", "", "");
 
         assertThat(validator.validate(request)).isEmpty();
@@ -70,7 +64,6 @@ class CustomerRequestValidationTest {
 
     @Test
     void failsWhenEmailFormatIsInvalid() {
-
         CustomerRequest request = request("Jane Smith", null, "not-an-email");
 
         Set<ConstraintViolation<CustomerRequest>> violations = validator.validate(request);
@@ -81,7 +74,6 @@ class CustomerRequestValidationTest {
 
     @Test
     void failsWhenMobileFormatIsInvalid() {
-
         CustomerRequest request = request("Alex Kim", "abc123", null);
 
         Set<ConstraintViolation<CustomerRequest>> violations = validator.validate(request);
@@ -92,7 +84,6 @@ class CustomerRequestValidationTest {
 
     @Test
     void failsWhenFullNameIsBlankRegardlessOfContactDetails() {
-
         CustomerRequest request = request("", null, null);
 
         Set<ConstraintViolation<CustomerRequest>> violations = validator.validate(request);
@@ -102,7 +93,6 @@ class CustomerRequestValidationTest {
     }
 
     private static CustomerRequest request(String fullName, String mobile, String email) {
-
         CustomerRequest request = new CustomerRequest();
         request.setFullName(fullName);
         request.setMobile(mobile);

@@ -30,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Transactional
 public class RecipeServiceImpl implements RecipeService {
-
 	private final RecipeRepository recipeRepository;
 
 	private final MenuItemRepository menuItemRepository;
@@ -41,9 +40,7 @@ public class RecipeServiceImpl implements RecipeService {
 
 	@Override
 	public RecipeResponse create(CreateRecipeRequest request) {
-
 		if (recipeRepository.existsByMenuItemId(request.getMenuItemId())) {
-
 			log.warn("Recipe creation rejected - menu item {} already has a recipe", request.getMenuItemId());
 			throw new IllegalArgumentException("Menu item already has a recipe: " + request.getMenuItemId());
 		}
@@ -70,14 +67,12 @@ public class RecipeServiceImpl implements RecipeService {
 	@Override
 	@Transactional(readOnly = true)
 	public List<RecipeResponse> getAll() {
-
 		return recipeRepository.findAllWithItems().stream().map(mapper::toResponse).toList();
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public RecipeResponse getById(Long id) {
-
 		Recipe recipe = recipeRepository.findByIdWithItems(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + id));
 
@@ -87,7 +82,6 @@ public class RecipeServiceImpl implements RecipeService {
 	@Override
 	@Transactional(readOnly = true)
 	public RecipeResponse getByMenuItemId(Long menuItemId) {
-
 		Recipe recipe = recipeRepository.findByMenuItemIdWithItems(menuItemId)
 				.orElseThrow(() -> new ResourceNotFoundException("Recipe not found for menu item: " + menuItemId));
 
@@ -96,7 +90,6 @@ public class RecipeServiceImpl implements RecipeService {
 
 	@Override
 	public RecipeResponse update(Long id, UpdateRecipeRequest request) {
-
 		Recipe recipe = recipeRepository.findByIdWithItems(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + id));
 
@@ -113,7 +106,6 @@ public class RecipeServiceImpl implements RecipeService {
 		}
 
 		if (request.getItems() != null) {
-
 			if (request.getItems().isEmpty()) {
 				throw new IllegalArgumentException("Recipe must have at least one ingredient");
 			}
@@ -130,30 +122,15 @@ public class RecipeServiceImpl implements RecipeService {
 
 	@Override
 	public void delete(Long id) {
-
 		Recipe recipe = recipeRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + id));
 
-		/*
-		 * Hard delete (recipe_items cascade). Nothing references a recipe
-		 * after the fact - stock movements point at the order, not the recipe -
-		 * and the old soft delete left the menu item permanently blocked from
-		 * getting a new recipe, since menu_item_id is unique. To pause a recipe
-		 * without losing it, PATCH enabled=false instead.
-		 */
 		recipeRepository.delete(recipe);
 
 		log.info("Deleted recipe id={}", id);
 	}
 
-	/**
-	 * Updates the recipe's ingredient list in place rather than clear-and-readd:
-	 * Hibernate flushes inserts before orphan deletes, so re-adding a
-	 * (recipe, inventory item) pair that was just cleared trips the
-	 * uk_recipe_items_recipe_inventory unique constraint and the PATCH 500s.
-	 */
 	private void syncRecipeItems(Recipe recipe, List<RecipeItemRequest> requests) {
-
 		validateNoDuplicates(requests);
 
 		Map<Long, RecipeItemRequest> requested = new HashMap<>();
@@ -172,7 +149,6 @@ public class RecipeServiceImpl implements RecipeService {
 	}
 
 	private void validateNoDuplicates(List<RecipeItemRequest> requests) {
-
 		long distinct = requests.stream().map(RecipeItemRequest::getInventoryItemId).distinct().count();
 
 		if (distinct != requests.size()) {
@@ -181,7 +157,6 @@ public class RecipeServiceImpl implements RecipeService {
 	}
 
 	private RecipeItem newRecipeItem(Recipe recipe, RecipeItemRequest itemRequest) {
-
 		InventoryItem inventoryItem = inventoryItemRepository.findById(itemRequest.getInventoryItemId())
 				.orElseThrow(() -> new ResourceNotFoundException(
 						"Inventory item not found: " + itemRequest.getInventoryItemId()));
@@ -200,7 +175,6 @@ public class RecipeServiceImpl implements RecipeService {
 	}
 
 	private List<RecipeItem> toRecipeItems(Recipe recipe, List<RecipeItemRequest> requests) {
-
 		validateNoDuplicates(requests);
 
 		return new ArrayList<>(requests.stream().map(r -> newRecipeItem(recipe, r)).toList());

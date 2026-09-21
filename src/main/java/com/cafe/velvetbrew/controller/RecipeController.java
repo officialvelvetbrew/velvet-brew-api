@@ -24,7 +24,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-@Tag(name = "Recipe Management", description = "Ingredient quantities per menu item (ADMIN/STAFF). Orders consume these from inventory when they reach COMPLETED, and return them if a completed order is later cancelled or rejected.")
+@Tag(name = "Recipe Management", description = "Ingredient quantities per menu item (ADMIN/STAFF). Orders for a menu item are rejected with 409 when these ingredients are out of stock, and consume them from inventory when the order reaches COMPLETED (returned if a completed order is later cancelled or rejected).")
 @RestController
 @RequestMapping("/api/v1/inventory/recipes")
 @RequiredArgsConstructor

@@ -26,13 +26,17 @@ public class AdminOrderController {
     @PatchMapping("/{orderNumber}/status")
     @Operation(summary = "Update order status",
             description = "Update the status of an order (e.g., PENDING → ACCEPTED → READY → COMPLETED). " +
-                    "Only updates the order status without modifying items or pricing.")
+                    "Only updates the order status without modifying items or pricing. " +
+                    "Recipe ingredients are deducted from inventory once, when the order becomes COMPLETED (repeating COMPLETED does nothing). " +
+                    "Moving a completed order to CANCELLED or REJECTED returns them; cancelling or rejecting an order that never completed leaves stock untouched. " +
+                    "If stock is too low to complete the order the request fails with 409 and the status is unchanged.")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Order status updated successfully"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request body or invalid status"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized - Admin token required"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Admin role required"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Order not found")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Order not found"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Not enough inventory to complete the order; status left unchanged")
     })
     public ApiResponse<OrderResponse> updateOrderStatus(
             @Parameter(description = "Order number to update", required = true, example = "VB-001234")

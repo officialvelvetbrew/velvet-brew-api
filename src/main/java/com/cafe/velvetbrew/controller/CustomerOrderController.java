@@ -37,7 +37,7 @@ public class CustomerOrderController {
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Order created"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Validation failed, unavailable menu item or invalid offer"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Not enough ingredient stock, or an ingredient is disabled, e.g. \"Not enough stock to make Espresso: Nescafe Coffee needs 2 KG but only 1 KG is available\"")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Not enough ingredient stock, or an ingredient is disabled. The whole order is rejected and every short item is listed in one message, e.g. \"Not enough stock to make Espresso: Nescafe Coffee needs 2 KG but only 1 KG is available\"")
     })
     @PostMapping
     public ApiResponse<OrderResponse> createOrder(

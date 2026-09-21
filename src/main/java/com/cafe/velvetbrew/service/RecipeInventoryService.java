@@ -1,6 +1,7 @@
 package com.cafe.velvetbrew.service;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -56,21 +57,26 @@ public class RecipeInventoryService {
 			}
 		}
 
+		List<String> problems = new ArrayList<>();
+
 		for (Map.Entry<Long, BigDecimal> entry : required.entrySet()) {
 			InventoryItem ingredient = ingredients.get(entry.getKey());
+			String menuItems = String.join(", ", usedBy.get(entry.getKey()));
 
 			if (!Boolean.TRUE.equals(ingredient.getEnabled())) {
-				throw new IllegalStateException(String.format("%s is currently unavailable (ingredient %s is disabled)",
-						String.join(", ", usedBy.get(entry.getKey())), ingredient.getName()));
-			}
-
-			if (entry.getValue().compareTo(ingredient.getCurrentStock()) > 0) {
-				throw new IllegalStateException(String.format(
-						"Not enough stock to make %s: %s needs %s %s but only %s %s is available",
-						String.join(", ", usedBy.get(entry.getKey())), ingredient.getName(),
+				problems.add(String.format("%s is currently unavailable (ingredient %s is disabled)",
+						menuItems, ingredient.getName()));
+			} else if (entry.getValue().compareTo(ingredient.getCurrentStock()) > 0) {
+				problems.add(String.format("Not enough stock to make %s: %s needs %s %s but only %s %s is available",
+						menuItems, ingredient.getName(),
 						entry.getValue().stripTrailingZeros().toPlainString(), ingredient.getUnit(),
 						ingredient.getCurrentStock().stripTrailingZeros().toPlainString(), ingredient.getUnit()));
 			}
+		}
+
+		if (!problems.isEmpty()) {
+			throw new IllegalStateException(problems.size() == 1 ? problems.get(0)
+					: "This order cannot be placed: " + String.join("; ", problems));
 		}
 	}
 

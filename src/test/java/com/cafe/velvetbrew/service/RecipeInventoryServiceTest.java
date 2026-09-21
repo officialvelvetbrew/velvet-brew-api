@@ -116,4 +116,39 @@ class RecipeInventoryServiceTest {
         assertThatCode(() -> service.assertStockAvailable(List.of(line(espresso, 50), line(latte, 50))))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    void reportsEveryShortItemInOneMessageAndNamesOnlyTheShortOnesWhenOnlyOneIsShort() {
+        InventoryItem milk = new InventoryItem();
+        milk.setId(2L);
+        milk.setName("Milk");
+        milk.setUnit(InventoryUnit.ML);
+        milk.setEnabled(true);
+        milk.setCurrentStock(new BigDecimal("50"));
+        MenuItem cake = MenuItem.builder().id(12L).name("Cake").build();
+        recipe(espresso, true, "20");
+        Recipe latteRecipe = new Recipe();
+        latteRecipe.setMenuItem(latte);
+        latteRecipe.setEnabled(true);
+        RecipeItem milkItem = new RecipeItem();
+        milkItem.setRecipe(latteRecipe);
+        milkItem.setInventoryItem(milk);
+        milkItem.setQuantity(new BigDecimal("30"));
+        latteRecipe.setRecipeItems(new ArrayList<>(List.of(milkItem)));
+        when(recipeRepository.findByMenuItemIdWithItems(11L)).thenReturn(Optional.of(latteRecipe));
+        when(recipeRepository.findByMenuItemIdWithItems(12L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.assertStockAvailable(
+                List.of(line(espresso, 1), line(latte, 2), line(cake, 4))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Not enough stock to make Latte: Milk needs 60 ML but only 50 ML is available");
+
+        assertThatThrownBy(() -> service.assertStockAvailable(
+                List.of(line(espresso, 6), line(latte, 2), line(cake, 4))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageStartingWith("This order cannot be placed: ")
+                .hasMessageContaining("make Espresso: Beans needs 120 G but only 100 G")
+                .hasMessageContaining("make Latte: Milk needs 60 ML but only 50 ML")
+                .hasMessageNotContaining("Cake");
+    }
 }

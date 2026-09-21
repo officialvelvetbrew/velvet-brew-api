@@ -1,10 +1,14 @@
 package com.cafe.velvetbrew.service;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.cafe.velvetbrew.common.exception.ResourceNotFoundException;
 import com.cafe.velvetbrew.dto.CreateRecipeRequest;
 import com.cafe.velvetbrew.dto.RecipeItemRequest;
 import com.cafe.velvetbrew.dto.RecipeResponse;
@@ -45,7 +49,7 @@ public class RecipeServiceImpl implements RecipeService {
 		}
 
 		MenuItem menuItem = menuItemRepository.findById(request.getMenuItemId())
-				.orElseThrow(() -> new RuntimeException("Menu item not found: " + request.getMenuItemId()));
+				.orElseThrow(() -> new ResourceNotFoundException("Menu item not found: " + request.getMenuItemId()));
 
 		Recipe recipe = new Recipe();
 
@@ -75,7 +79,7 @@ public class RecipeServiceImpl implements RecipeService {
 	public RecipeResponse getById(Long id) {
 
 		Recipe recipe = recipeRepository.findByIdWithItems(id)
-				.orElseThrow(() -> new RuntimeException("Recipe not found: " + id));
+				.orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + id));
 
 		return mapper.toResponse(recipe);
 	}
@@ -85,7 +89,7 @@ public class RecipeServiceImpl implements RecipeService {
 	public RecipeResponse getByMenuItemId(Long menuItemId) {
 
 		Recipe recipe = recipeRepository.findByMenuItemIdWithItems(menuItemId)
-				.orElseThrow(() -> new RuntimeException("Recipe not found for menu item: " + menuItemId));
+				.orElseThrow(() -> new ResourceNotFoundException("Recipe not found for menu item: " + menuItemId));
 
 		return mapper.toResponse(recipe);
 	}
@@ -94,7 +98,7 @@ public class RecipeServiceImpl implements RecipeService {
 	public RecipeResponse update(Long id, UpdateRecipeRequest request) {
 
 		Recipe recipe = recipeRepository.findByIdWithItems(id)
-				.orElseThrow(() -> new RuntimeException("Recipe not found: " + id));
+				.orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + id));
 
 		if (request.getName() != null && !request.getName().isBlank()) {
 			recipe.setName(request.getName().trim());
@@ -114,8 +118,7 @@ public class RecipeServiceImpl implements RecipeService {
 				throw new IllegalArgumentException("Recipe must have at least one ingredient");
 			}
 
-			recipe.getRecipeItems().clear();
-			recipe.getRecipeItems().addAll(toRecipeItems(recipe, request.getItems()));
+			syncRecipeItems(recipe, request.getItems());
 		}
 
 		Recipe updated = recipeRepository.save(recipe);
@@ -129,41 +132,77 @@ public class RecipeServiceImpl implements RecipeService {
 	public void delete(Long id) {
 
 		Recipe recipe = recipeRepository.findById(id)
-				.orElseThrow(() -> new RuntimeException("Recipe not found: " + id));
+				.orElseThrow(() -> new ResourceNotFoundException("Recipe not found: " + id));
 
 		/*
-		 * Soft delete, same as InventoryItem - keeps order history mapping to a
-		 * recipe that existed at the time even after it's retired.
+		 * Hard delete (recipe_items cascade). Nothing references a recipe
+		 * after the fact - stock movements point at the order, not the recipe -
+		 * and the old soft delete left the menu item permanently blocked from
+		 * getting a new recipe, since menu_item_id is unique. To pause a recipe
+		 * without losing it, PATCH enabled=false instead.
 		 */
-		recipe.setEnabled(false);
+		recipeRepository.delete(recipe);
 
-		recipeRepository.save(recipe);
+		log.info("Deleted recipe id={}", id);
+	}
 
-		log.info("Deleted (disabled) recipe id={}", recipe.getId());
+	/**
+	 * Updates the recipe's ingredient list in place rather than clear-and-readd:
+	 * Hibernate flushes inserts before orphan deletes, so re-adding a
+	 * (recipe, inventory item) pair that was just cleared trips the
+	 * uk_recipe_items_recipe_inventory unique constraint and the PATCH 500s.
+	 */
+	private void syncRecipeItems(Recipe recipe, List<RecipeItemRequest> requests) {
+
+		validateNoDuplicates(requests);
+
+		Map<Long, RecipeItemRequest> requested = new HashMap<>();
+		requests.forEach(r -> requested.put(r.getInventoryItemId(), r));
+
+		recipe.getRecipeItems().removeIf(item -> !requested.containsKey(item.getInventoryItem().getId()));
+
+		for (RecipeItem existing : recipe.getRecipeItems()) {
+			RecipeItemRequest match = requested.remove(existing.getInventoryItem().getId());
+			existing.setQuantity(match.getQuantity());
+		}
+
+		for (RecipeItemRequest added : requested.values()) {
+			recipe.getRecipeItems().add(newRecipeItem(recipe, added));
+		}
+	}
+
+	private void validateNoDuplicates(List<RecipeItemRequest> requests) {
+
+		long distinct = requests.stream().map(RecipeItemRequest::getInventoryItemId).distinct().count();
+
+		if (distinct != requests.size()) {
+			throw new IllegalArgumentException("Recipe cannot reference the same inventory item more than once");
+		}
+	}
+
+	private RecipeItem newRecipeItem(Recipe recipe, RecipeItemRequest itemRequest) {
+
+		InventoryItem inventoryItem = inventoryItemRepository.findById(itemRequest.getInventoryItemId())
+				.orElseThrow(() -> new ResourceNotFoundException(
+						"Inventory item not found: " + itemRequest.getInventoryItemId()));
+
+		if (!Boolean.TRUE.equals(inventoryItem.getEnabled())) {
+			throw new IllegalArgumentException("Inventory item is disabled: " + inventoryItem.getName());
+		}
+
+		RecipeItem recipeItem = new RecipeItem();
+
+		recipeItem.setRecipe(recipe);
+		recipeItem.setInventoryItem(inventoryItem);
+		recipeItem.setQuantity(itemRequest.getQuantity());
+
+		return recipeItem;
 	}
 
 	private List<RecipeItem> toRecipeItems(Recipe recipe, List<RecipeItemRequest> requests) {
 
-		List<Long> inventoryItemIds = requests.stream().map(RecipeItemRequest::getInventoryItemId).distinct().toList();
+		validateNoDuplicates(requests);
 
-		if (inventoryItemIds.size() != requests.size()) {
-			throw new IllegalArgumentException("Recipe cannot reference the same inventory item more than once");
-		}
-
-		return requests.stream().map(itemRequest -> {
-
-			InventoryItem inventoryItem = inventoryItemRepository.findById(itemRequest.getInventoryItemId())
-					.orElseThrow(() -> new RuntimeException(
-							"Inventory item not found: " + itemRequest.getInventoryItemId()));
-
-			RecipeItem recipeItem = new RecipeItem();
-
-			recipeItem.setRecipe(recipe);
-			recipeItem.setInventoryItem(inventoryItem);
-			recipeItem.setQuantity(itemRequest.getQuantity());
-
-			return recipeItem;
-
-		}).toList();
+		return new ArrayList<>(requests.stream().map(r -> newRecipeItem(recipe, r)).toList());
 	}
 }

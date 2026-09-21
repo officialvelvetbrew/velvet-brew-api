@@ -166,6 +166,22 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalState(
+            IllegalStateException ex) {
+
+        // e.g. StockServiceImpl's "Insufficient stock" / "Inventory item is
+        // disabled" - a conflict with current state, not a server fault.
+        log.warn("Conflict on {}: {}", requestPath(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .timestamp(LocalDateTime.now())
+                        .build());
+    }
+
     @ExceptionHandler(CategoryInUseException.class)
     public ResponseEntity<ApiResponse<Object>> handleCategoryInUse(
             CategoryInUseException ex) {

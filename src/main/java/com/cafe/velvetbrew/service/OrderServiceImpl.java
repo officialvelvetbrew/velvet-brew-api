@@ -83,17 +83,6 @@ public class OrderServiceImpl implements OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
-        // Deduct recipe ingredients only after the order has an id to
-        // reference on the stock movement. Insufficient stock throws and
-        // rolls back the whole transaction, so an order is never persisted
-        // without the stock to back it. No second save() needed - savedOrder
-        // is still managed in this transaction, so JPA's dirty checking
-        // persists the flag at commit. (An explicit save() here would call
-        // merge() since the id is now non-null, and merge() barfs on the
-        // plain immutable List toOrderItems() hands back via Stream.toList().)
-        recipeInventoryService.deductForOrder(savedOrder);
-        savedOrder.setInventoryDeducted(true);
-
         log.info("Created order {} for customer {} - {} item(s), subtotal {}, discount {}, total {}",
                 savedOrder.getOrderNumber(), customer.getId(), orderItems.size(), subtotal, discount,
                 order.getTotalAmount());
@@ -129,7 +118,8 @@ public class OrderServiceImpl implements OrderService {
         // Release the ingredients consumed for the CURRENT items before they
         // get replaced below - this must run before the collection is
         // cleared, since it reads order.getOrderItems() as they stand now.
-        if (Boolean.TRUE.equals(order.getInventoryDeducted())) {
+        boolean wasDeducted = Boolean.TRUE.equals(order.getInventoryDeducted());
+        if (wasDeducted) {
             recipeInventoryService.restockForOrder(order);
         }
 
@@ -167,10 +157,13 @@ public class OrderServiceImpl implements OrderService {
 
         Order updatedOrder = orderRepository.save(order);
 
-        // Deduct ingredients for the NEW items - mirrors the restock above.
-        // No second save() needed; see the comment in createOrder().
-        recipeInventoryService.deductForOrder(updatedOrder);
-        updatedOrder.setInventoryDeducted(true);
+        // Stock only moves for COMPLETED orders. An order edited after it was
+        // already deducted had its old items restocked above, so the new
+        // items are deducted here and the flag stays true. Orders that were
+        // never deducted are left for the COMPLETED transition to handle.
+        if (wasDeducted) {
+            recipeInventoryService.deductForOrder(updatedOrder);
+        }
 
         log.info("Updated order {} - {} item(s), subtotal {}, discount {}, total {}",
                 orderNumber, orderItems.size(), subtotal, discount, order.getTotalAmount());
@@ -219,6 +212,15 @@ public class OrderServiceImpl implements OrderService {
         if (releasesInventory) {
             recipeInventoryService.restockForOrder(order);
             order.setInventoryDeducted(false);
+        }
+
+        // Ingredients are only consumed once an order is actually COMPLETED
+        // (not when it's placed), and only once: inventoryDeducted makes a
+        // repeated COMPLETED update a no-op. Insufficient stock throws and
+        // rolls back this whole transaction, leaving the status unchanged.
+        if (orderStatus == OrderStatus.COMPLETED && !Boolean.TRUE.equals(order.getInventoryDeducted())) {
+            recipeInventoryService.deductForOrder(order);
+            order.setInventoryDeducted(true);
         }
 
         order.setOrderStatus(orderStatus);
